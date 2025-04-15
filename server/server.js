@@ -19,6 +19,10 @@ app.use(cors(corsOptions));
 // Optional: Middleware to parse JSON request bodies (if you send data in POST requests later)
 // app.use(express.json());
 
+const STREET_DATA_API_KEY = "wFizYGa9QBdaxqxoDNshS7N82i2cStjl11FXsKzN2ug";
+const STREET_DATA_API_BASE_URL =
+  "https://api.data.street.co.uk/street-data-api/v2"; // Production URL
+
 const NOMIS_DATA_DEFINITIONS = {
   Sex: {
     dataset_id: "NM_2028_1",
@@ -249,20 +253,15 @@ app.get("/api/land-registry", async (req, res) => {
         "[Proxy LR] Land Registry Error Data:",
         error.response.data
       );
-      res
-        .status(error.response.status)
-        .json({
-          error: `Land Registry API error: ${error.response.status}`,
-          details: error.response.data,
-        });
+      res.status(error.response.status).json({
+        error: `Land Registry API error: ${error.response.status}`,
+        details: error.response.data,
+      });
     } else if (error.request) {
       console.error("[Proxy LR] No response received:", error.request);
-      res
-        .status(504)
-        .json({
-          error:
-            "No response received from Land Registry API (Gateway Timeout).",
-        });
+      res.status(504).json({
+        error: "No response received from Land Registry API (Gateway Timeout).",
+      });
     } else {
       console.error("[Proxy LR] Error setting up request:", error.message);
       res
@@ -286,11 +285,9 @@ app.get("/api/demographics", async (req, res) => {
   // 1. Get Geography Codes (LSOA, LAD)
   const geoCodes = await getGeographyCodesForPostcode(postcode);
   if (!geoCodes) {
-    return res
-      .status(404)
-      .json({
-        error: `Could not find geographic codes (LSOA/LAD) for postcode ${postcode}.`,
-      });
+    return res.status(404).json({
+      error: `Could not find geographic codes (LSOA/LAD) for postcode ${postcode}.`,
+    });
   }
 
   const geographyParam = `${geoCodes.lsoa_gss},${geoCodes.lad_gss}`;
@@ -519,7 +516,109 @@ app.get("/api/land-registry", async (req, res) => {
     }
   }
 });
+// --- NEW Street Data API Endpoint ---
+app.get("/api/street-data/postcode", async (req, res) => {
+  const { postcode, tier = "basic", results = 20 } = req.query; // Default to basic tier, 20 results
 
+  if (!postcode) {
+    return res
+      .status(400)
+      .json({ error: "Postcode query parameter is required." });
+  }
+  if (!STREET_DATA_API_KEY) {
+    console.error(
+      "[Proxy StreetData] Error: STREET_DATA_API_KEY environment variable is not set."
+    );
+    return res.status(500).json({ error: "API Key is missing on the server." });
+  }
+
+  // Prepare postcode for Street Data API (uppercase, no space)
+  const formattedPostcode = postcode.trim().toUpperCase().replace(/\s+/g, "");
+  // Validate postcode format (simple regex)
+  const postcodeRegex = /^[A-Z]{1,2}[0-9][A-Z0-9]?[0-9][A-Z]{2}$/;
+  if (!postcodeRegex.test(formattedPostcode)) {
+    return res
+      .status(400)
+      .json({ error: "Invalid UK postcode format provided." });
+  }
+
+  const targetUrl = `${STREET_DATA_API_BASE_URL}/properties/areas/postcodes`;
+
+  const params = new URLSearchParams({
+    postcode: formattedPostcode,
+    tier: tier,
+    results: results,
+    // Add dry_run: true here if you want to test cost without charges
+    // dry_run: true
+  });
+
+  console.log(
+    `[Proxy StreetData] Received request for postcode: ${postcode} (Tier: ${tier}, Results: ${results})`
+  );
+  console.log(
+    `[Proxy StreetData] Forwarding request to: ${targetUrl}?${params.toString()}`
+  );
+
+  try {
+    const apiResponse = await axios.get(targetUrl, {
+      params: params, // Pass params object directly
+      headers: {
+        Accept: "application/json",
+        "x-api-key": STREET_DATA_API_KEY, // Add the API key header
+      },
+      timeout: 20000, // 20 seconds timeout
+    });
+
+    console.log(
+      `[Proxy StreetData] Street Data API responded with status: ${apiResponse.status}`
+    );
+    // Log cost information if available
+    if (apiResponse.data?.meta?.request_cost_gbp !== undefined) {
+      console.log(
+        `[Proxy StreetData] Request Cost: £${apiResponse.data.meta.request_cost_gbp.toFixed(
+          2
+        )}, Balance: £${apiResponse.data.meta.balance_gbp?.toFixed(2) ?? "N/A"}`
+      );
+    }
+
+    res.status(apiResponse.status).json(apiResponse.data);
+  } catch (error) {
+    console.error(
+      "[Proxy StreetData] Error fetching data from Street Data API:",
+      error.message
+    );
+    if (error.response) {
+      console.error(
+        "[Proxy StreetData] Street Data Error Status:",
+        error.response.status
+      );
+      console.error(
+        "[Proxy StreetData] Street Data Error Data:",
+        error.response.data
+      );
+      // Forward the specific error structure from Street Data API if available
+      res.status(error.response.status).json({
+        error: `Street Data API error: ${error.response.status}`,
+        details: error.response.data, // Forward details
+      });
+    } else if (error.request) {
+      console.error("[Proxy StreetData] No response received:", error.request);
+      res
+        .status(504)
+        .json({
+          error: "No response received from Street Data API (Gateway Timeout).",
+        });
+    } else {
+      console.error(
+        "[Proxy StreetData] Error setting up request:",
+        error.message
+      );
+      res
+        .status(500)
+        .json({ error: "Internal server error contacting Street Data API." });
+    }
+  }
+});
 // --- Basic Root Route (optional, for testing) ---
 app.get("/", (req, res) => {
   res.send("Real Estate App Proxy Server is running!");
