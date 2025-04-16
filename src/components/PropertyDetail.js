@@ -1,6 +1,7 @@
 import { calculatePriceGrowth } from "../services/landRegistryService";
 import React, { useState, useEffect } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import CrimeCard from "./CrimeCard";
 import {
   faLocationDot,
   faBed,
@@ -794,6 +795,13 @@ const PropertyDetail = ({
             {hasDemographicData && (
               <div className="demographics-cards-container">
                 <p className="data-source-note">Data source: Nomis (ONS)</p>
+                {property.crimeStats && (
+  <CrimeCard
+    stats={property.crimeStats}
+    isCollapsed={collapsedCards["Crime"] ?? true}
+    onToggleCollapse={() => handleToggleCollapse("Crime")}
+  />
+)}
 
                 {Object.entries(demographicData.demographics)
                   .sort(([topicA], [topicB]) => topicA.localeCompare(topicB))
@@ -812,6 +820,7 @@ const PropertyDetail = ({
                       onToggleCollapse={() => handleToggleCollapse(topic)}
                     />
                   ))}
+
                 {/* ... partial error note ... */}
               </div>
             )}
