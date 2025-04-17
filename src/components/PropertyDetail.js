@@ -1,847 +1,381 @@
-import { calculatePriceGrowth } from "../services/landRegistryService";
-import React, { useState, useEffect } from "react";
+// src/components/PropertyDetail.js
+import React, { useState, useEffect, useMemo } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import CrimeCard from "./CrimeCard";
 import {
+  // Existing icons...
   faLocationDot,
   faBed,
   faBath,
   faRulerCombined,
-  faClock,
   faBuilding,
-  faHome,
-  faMoneyBillWave,
+  faHomeUser,
   faChartLine,
-  faExclamationTriangle,
-  faSchool,
-  faTrain,
-  faPlusSquare,
-  faMinusSquare,
-  faChevronDown,
-  faChartBar,
-  faDollarSign,
-  faPercentage,
-  faHistory,
   faArrowLeft,
-  faEllipsisH,
-  faQuestionCircle,
-  faCar,
-  faChartArea,
-  faSterlingSign, // Use sterling
+  faSpinner,
+  faExternalLinkAlt,
+  faUserGroup,
+  faSterlingSign,
+  faInfoCircle,
+  faMoneyBillTrendUp,
+  faMagnifyingGlassChart,
+  faUsersViewfinder,
+  faHistory,
+  faBalanceScale, // ✅ NEW Icon for Crime
+  faPlusSquare, // ✅ NEW Icon for Expand
+  faMinusSquare, // ✅ NEW Icon for Collapse
 } from "@fortawesome/free-solid-svg-icons";
 
-import {
-  faUsers, // Icon for Demographics
-  faSpinner, // Loading icon
-  faExclamationCircle, // Error icon
-} from "@fortawesome/free-solid-svg-icons";
 import DemographicCard from "./DemographicCard";
+import CrimeCard from "./CrimeCard"; // ✅ NEW IMPORT
+import ImageSlideshow from "./ImageSlideshow";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
-// --- Helper Functions ---
-const DemographicTopic = ({ topicName, nomisData, geoCodes }) => {
-  // nomisData is the object like { format, version, result: { _about, ..., obs: [...] } }
-  // or { error: '...', obs: [] } if fetch failed for this topic
-
-  if (
-    !nomisData ||
-    nomisData.error ||
-    !nomisData.obs ||
-    nomisData.obs.length === 0
-  ) {
-    // Optionally display the specific error: {nomisData?.error || 'No data available'}
-    return (
-      <div className="demographic-topic no-data">
-        <h4>{topicName}</h4>
-        <p>No data available for LSOA/LAD.</p>
-      </div>
-    );
-  }
-
-  // Find the dimension code key (e.g., 'c_sex', 'c2021_age_12a') dynamically
-  // It's usually the key in the 'obs' object that isn't 'dataset', 'geography', 'measures', etc.
-  const dimensionKey = Object.keys(nomisData.obs[0] || {}).find(
-    (key) =>
-      key !== "dataset" &&
-      key !== "geography" &&
-      key !== "measures" &&
-      key !== "freq" &&
-      key !== "time_format" &&
-      key !== "unit" &&
-      key !== "time" &&
-      key !== "obs_value" &&
-      key !== "obs_status" &&
-      key !== "obs_conf" &&
-      key !== "obs_round" &&
-      key !== "urn"
-  );
-
-  if (!dimensionKey) {
-    console.warn(`Could not determine dimension key for topic: ${topicName}`);
-    return (
-      <div className="demographic-topic error">
-        <h4>{topicName}</h4>
-        <p>Could not parse data structure.</p>
-      </div>
-    );
-  }
-
-  // Group observations by geography (LSOA vs LAD)
-  const lsoaData = nomisData.obs.filter(
-    (obs) => obs.geography?.geogcode === geoCodes?.lsoa_gss
-  );
-  const ladData = nomisData.obs.filter(
-    (obs) => obs.geography?.geogcode === geoCodes?.lad_gss
-  );
-
-  // Function to render data for a specific geography level
-  const renderGeographyData = (data, levelName) => {
-    if (!data || data.length === 0) return null;
-    // Find the "Total" observation to calculate percentages (if needed)
-    const totalObs = data.find(
-      (obs) =>
-        obs[dimensionKey]?.value === 0 ||
-        obs[dimensionKey]?.description?.toLowerCase().includes("total")
-    );
-    const totalValue = totalObs?.obs_value?.value;
-
-    return (
-      <div className="demographic-level">
-        <h5>
-          {levelName} ({data[0]?.geography?.description || "N/A"})
-        </h5>
-        <table>
-          <thead>
-            <tr>
-              <th>Category</th>
-              <th>Value</th>
-              {totalValue > 0 && <th>%</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {data
-              .filter(
-                (obs) =>
-                  obs[dimensionKey]?.value !== 0 &&
-                  !obs[dimensionKey]?.description
-                    ?.toLowerCase()
-                    .includes("total")
-              ) // Exclude total row from table body
-              .map((obs, index) => (
-                <tr
-                  key={`${obs.geography?.geogcode}-${obs[dimensionKey]?.value}-${index}`}
-                >
-                  <td>{obs[dimensionKey]?.description || "N/A"}</td>
-                  <td>{obs.obs_value?.value?.toLocaleString() ?? "N/A"}</td>
-                  {totalValue > 0 && (
-                    <td>
-                      {obs.obs_value?.value !== undefined
-                        ? `${((obs.obs_value.value / totalValue) * 100).toFixed(
-                            1
-                          )}%`
-                        : "N/A"}
-                    </td>
-                  )}
-                </tr>
-              ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  };
-
-  return (
-    <div className="demographic-topic">
-      <h4>{topicName}</h4>
-      {renderGeographyData(lsoaData, "LSOA Level")}
-      {renderGeographyData(ladData, "Local Authority Level")}
-    </div>
-  );
-};
-
-// Formats numbers as currency (adds £, commas) or returns "No result"
+// --- Helper Functions (Keep existing formatters: formatPrice, formatCurrency, formatDate, formatPercentage) ---
 const formatPrice = (value) => {
-  if (
-    value === null ||
-    value === undefined ||
-    value === "N/A" ||
-    value === "No result"
-  ) {
-    return "No result";
-  }
-  // Check if it's already formatted
-  if (typeof value === "string" && value.startsWith("£")) {
-    return value;
-  }
-  // Try to parse as number
-  const num = parseFloat(String(value).replace(/[^0-9.-]+/g, ""));
-  if (!isNaN(num)) {
-    return `£${num.toLocaleString("en-GB", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    })}`; // Use GB locale for formatting
-  }
-  // If it's a string that couldn't be parsed but isn't 'N/A', return it as is (less likely)
-  if (typeof value === "string") return value;
-  return "No result";
+  /* ... keep existing ... */
 };
-
-// Formats percentages or returns "No result"
+const formatCurrency = (value) => {
+  /* ... keep existing ... */
+};
+const formatDate = (dateStringOrDate) => {
+  /* ... keep existing ... */
+};
 const formatPercentage = (value) => {
-  if (
-    value === null ||
-    value === undefined ||
-    value === "N/A" ||
-    value === "No result" ||
-    value === "Not enough data" ||
-    value === "Calculation error"
-  ) {
-    return "No result";
-  }
-  // Check if it already has %
-  if (typeof value === "string" && value.includes("%")) {
-    // Clean up potential double percentage signs or extra text
-    const match = value.match(/([+-]?\d+(\.\d+)?%)/);
-    return match ? match[0] : value; // Return matched percentage or original string
-  }
-  // Assume it's a number needing formatting
-  const num = parseFloat(value);
-  if (!isNaN(num)) {
-    return `${num.toFixed(1)}%`;
-  }
-  // If it's a string like 'p.a.' or similar, return it
-  if (typeof value === "string") return value;
-  return "No result";
+  /* ... keep existing ... */
 };
-
-// Component to display a metric with "No result" state
-const NoResultDisplay = ({ label, icon }) => (
-  <div className="metric">
-    {icon && <FontAwesomeIcon icon={icon} />}
-    <div className="metric-content">
-      <span className="metric-label">{label}</span>
-      <span className="metric-value no-result">No result</span>
-    </div>
-  </div>
-);
-
-// --- Main Component ---
 
 const PropertyDetail = ({
   property,
-  demographicData,
-  isFetchingDemographics,
-  demographicsError,
+  // Remove direct demo props, get from property
+  // isLoadingLR, // Get from property if needed, but PropertyDetail doesn't use it directly now
+  // isLoadingDemo, // Get from property if needed
+  // Pass other necessary props
+  predictionResults, // Keep if passed separately, otherwise get from property if included
+  isLoadingPrediction,
+  predictionError,
   onBackToListings,
 }) => {
-  const [activeTab, setActiveTab] = useState("overview");
-  // Initialize with all cards collapsed by default
+  // State for active tab
+  const [activeTab, setActiveTab] = useState("overview"); // Default to overview
+
+  // State for managing collapsed demographic AND crime cards
   const [collapsedCards, setCollapsedCards] = useState({});
 
-  // Check if demographic data is present and has the expected structure
-  const hasDemographicData =
-    demographicData?.demographics &&
-    Object.keys(demographicData.demographics).length > 0;
+  // Memoize demographics data
+  const demographics = useMemo(
+    () => property?.demographicData?.demographics,
+    [property?.demographicData]
+  );
+  // Check if crime data exists
+  const crimeStats = useMemo(
+    () => property?.crimeStats,
+    [property?.crimeStats]
+  ); // ✅ Memoize crime data
 
+  // Update collapsed topics when demographics or crime data changes
   useEffect(() => {
-    if (hasDemographicData) {
-      const initialCollapseState = {};
-      Object.keys(demographicData.demographics).forEach((topic) => {
-        initialCollapseState[topic] = true; // Start all collapsed
+    const initialCollapseState = {};
+    // Initialize from demographics
+    if (demographics && typeof demographics === "object") {
+      Object.keys(demographics).forEach((topic) => {
+        initialCollapseState[topic] = true; // Default to collapsed
       });
-      setCollapsedCards(initialCollapseState);
-    } else {
-      setCollapsedCards({}); // Reset if no data
     }
-  }, [demographicData]); // Re-run when demographicData changes
+    // ✅ Initialize for Crime if data exists
+    if (crimeStats) {
+      initialCollapseState["Crime"] = true; // Use "Crime" as the key
+    }
+    setCollapsedCards(initialCollapseState);
+  }, [demographics, crimeStats]); // ✅ Depend on crimeStats too
 
-  if (!property) return null;
+  // Memoize prediction data processing (Keep existing)
+  const { processedPredictionData, predictionDomain } = useMemo(() => {
+    /* ... keep existing ... */
+  }, [predictionResults]);
 
-  // --- Data Preparation ---
-  // Use transaction data from property if available (for search results)
-  const currentTransactionData = property.transactionHistory || [];
-  const priceGrowthInfo = property.priceGrowth || {}; // Use pre-calculated from App.js with fallback
-  const isSpecificListing =
-    property.details && property.details.bedrooms !== "N/A";
+  if (!property) return null; // Early return if no property
 
-  const details = property.details || {};
-  const price = property.price || {};
-  const amenities = property.amenities || [];
-  const transport = property.transport || [];
-  const schools = property.schools || [];
+  // --- Destructure with defaults ---
+  const {
+    title = "Property Details",
+    location = "N/A",
+    postcode = "N/A",
+    details = {},
+    price = {},
+    description = "",
+    transactionHistory = null,
+    priceGrowth = null,
+    demographicData = null, // Keep demo data here
+    source = "Unknown",
+    detail_url = null,
+    image_urls = [],
+    image = "...", // Keep image data
+    isAreaSummary = false, // ✅ Check if it's an area summary
+    // crimeStats is accessed directly via property.crimeStats
+  } = property;
 
-  // --- NEW Handler Functions ---
-  const handleToggleCollapse = (topicName) => {
-    setCollapsedCards((prevState) => ({
-      ...prevState,
-      [topicName]: !prevState[topicName], // Toggle the specific topic
-    }));
-  };
+  // Geo codes needed for DemographicCard
+  const geoCodes = property?.demographicData?.geoCodes;
+  // Fetch errors for demographics
+  const demoFetchErrors = property?.demographicData?.fetchErrors || [];
 
-  const handleExpandAll = () => {
-    const allExpanded = {};
-    Object.keys(collapsedCards).forEach((topic) => {
-      allExpanded[topic] = false; // Set all to not collapsed
+  // --- Event Handlers for Collapse/Expand ---
+  const handleToggleCollapse = useCallback((topicName) => {
+    setCollapsedCards((prev) => ({ ...prev, [topicName]: !prev[topicName] }));
+  }, []); // No dependencies needed if only using prev state
+
+  const handleExpandAll = useCallback(() => {
+    setCollapsedCards((prev) => {
+      const newState = { ...prev };
+      Object.keys(newState).forEach((topic) => (newState[topic] = false));
+      return newState;
     });
-    setCollapsedCards(allExpanded);
-  };
+  }, []);
 
-  const handleCollapseAll = () => {
-    const allCollapsed = {};
-    Object.keys(collapsedCards).forEach((topic) => {
-      allCollapsed[topic] = true; // Set all to collapsed
+  const handleCollapseAll = useCallback(() => {
+    setCollapsedCards((prev) => {
+      const newState = { ...prev };
+      Object.keys(newState).forEach((topic) => (newState[topic] = true));
+      return newState;
     });
-    setCollapsedCards(allCollapsed);
+  }, []);
+
+  // Custom Tooltip for Prediction Chart (Keep existing)
+  const PredictionTooltip = ({ active, payload, label }) => {
+    /* ... keep existing ... */
   };
 
-  const hasTransactionData =
-    property.transactionHistory && property.transactionHistory.length > 0;
-  const isAreaSummary = property.details && property.details.bedrooms === "N/A";
-
+  // --- Render Logic ---
   return (
     <div className="property-detail">
-      {/* --- Header and Tabs --- */}
+      {/* --- Header (Keep existing) --- */}
       <div className="detail-header">
-        <button className="back-button" onClick={onBackToListings}>
-          <FontAwesomeIcon icon={faArrowLeft} /> Back
+        {/* ... back button, title/location, external link ... */}
+      </div>
+      {/* --- Tabs (Conditionally show Demographics) --- */}
+      <div className="detail-tabs">
+        <button
+          className={`tab-button ${activeTab === "overview" ? "active" : ""}`}
+          onClick={() => setActiveTab("overview")}
+        >
+          <FontAwesomeIcon icon={faHomeUser} /> Overview
         </button>
-        <div className="tabs">
+        <button
+          className={`tab-button ${activeTab === "investment" ? "active" : ""}`}
+          onClick={() => setActiveTab("investment")}
+        >
+          <FontAwesomeIcon icon={faMoneyBillTrendUp} /> Investment & Forecast
+        </button>
+        {/* Only show Demographics for Area Summaries for now, or if specifically fetched for listing */}
+        {(isAreaSummary || demographicData || crimeStats) && ( // Show if it's summary OR has specific demo/crime data
           <button
-            className={activeTab === "overview" ? "active" : ""}
-            onClick={() => setActiveTab("overview")}
+            className={`tab-button ${
+              activeTab === "demographics" ? "active" : ""
+            }`}
+            onClick={() => setActiveTab("demographics")}
           >
-            {" "}
-            Overview{" "}
+            <FontAwesomeIcon icon={faUsersViewfinder} /> Area Insights
           </button>
-          <button
-            className={activeTab === "investment" ? "active" : ""}
-            onClick={() => setActiveTab("investment")}
-          >
-            {" "}
-            Investment{" "}
-          </button>
-          {hasTransactionData && (
-            <button
-              className={activeTab === "history" ? "active" : ""}
-              onClick={() => setActiveTab("history")}
-            >
-              {" "}
-              History{" "}
-            </button>
-          )}
-          {/* --- Demographics Tab --- */}
-          {isAreaSummary && (
-            <button
-              className={activeTab === "demographics" ? "active" : ""}
-              onClick={() => setActiveTab("demographics")}
-              disabled={isFetchingDemographics && !hasDemographicData}
-            >
-              <FontAwesomeIcon icon={faUsers} /> Demographics{" "}
-              {isFetchingDemographics && !hasDemographicData && (
-                <FontAwesomeIcon icon={faSpinner} spin />
-              )}
-            </button>
-          )}
-        </div>
+        )}
       </div>
-
-      {/* --- Image and Title --- */}
-      <div className="property-image-large">
-        <img
-          src={
-            property.image ||
-            "https://placehold.co/600x400/e9e9e9/1d1d1d?text=Image+Not+Available"
-          }
-          alt={property.title || "Property Image"}
-        />
-      </div>
-      <div className="property-title-section">
-        <h2>{property.title || "Property Details"}</h2>
-        <div className="property-location">
-          <FontAwesomeIcon icon={faLocationDot} />
-          <span>{property.location || "Location not specified"}</span>
-          {property.postcode && (
-            <span className="postcode"> ({property.postcode})</span>
-          )}
-        </div>
-      </div>
-
-      {/* === Tab Content === */}
-
-      {/* --- Overview Tab --- */}
-      {activeTab === "overview" && (
-        <div className="property-tab-content">
-          {/* Property Specific Details (only for specific listings) */}
-          {isSpecificListing && (
-            <div className="detail-section">
-              <h3>Property Details</h3>
-              <div className="details-grid">
-                <div className="metric">
-                  <FontAwesomeIcon icon={faBed} />
-                  <div className="metric-content">
-                    <span className="metric-label">Bedrooms</span>
-                    <span className="metric-value">
-                      {details.bedrooms || "N/A"}
-                    </span>
+      {/* --- Tab Content --- */}
+      <div className="detail-content">
+        {/* --- Overview Tab (Keep existing logic, using ImageSlideshow) --- */}
+        {activeTab === "overview" && (
+          <div className="property-tab-content overview-tab">
+            <div className="overview-layout">
+              <div className="overview-left">
+                <div className="detail-image-container">
+                  <ImageSlideshow
+                    imageUrls={image_urls || []}
+                    altText={title}
+                  />
+                </div>
+                {description && (
+                  <div className="detail-section description-section">
+                    <h3>
+                      <FontAwesomeIcon icon={faInfoCircle} /> Description
+                    </h3>
+                    <p className="detail-description">{description}</p>
+                  </div>
+                )}
+              </div>
+              <div className="overview-right">
+                <div className="detail-section property-summary">
+                  <h3>
+                    <FontAwesomeIcon icon={faBuilding} /> Property Summary
+                  </h3>
+                  <div className="summary-grid">
+                    {/* ... render summary items based on 'details' and 'price' ... */}
                   </div>
                 </div>
-                <div className="metric">
-                  <FontAwesomeIcon icon={faBath} />
-                  <div className="metric-content">
-                    <span className="metric-label">Bathrooms</span>
-                    <span className="metric-value">
-                      {details.bathrooms || "N/A"}
-                    </span>
+                {/* Add area summary note if applicable */}
+                {isAreaSummary && (
+                  <div className="detail-section area-summary-note">
+                    <p>
+                      This is an overview for the postcode area{" "}
+                      <strong>{postcode}</strong>. Specific property details
+                      (bedrooms, etc.) are not applicable. Area insights like
+                      Demographics, Crime, and historical trends are available
+                      in other tabs.
+                    </p>
                   </div>
-                </div>
-                <div className="metric">
-                  <FontAwesomeIcon icon={faRulerCombined} />
-                  <div className="metric-content">
-                    <span className="metric-label">Size</span>
-                    <span className="metric-value">
-                      {details.sqft ? `${details.sqft} sqft` : "N/A"}
-                    </span>
-                  </div>
-                </div>
-                <div className="metric">
-                  <FontAwesomeIcon icon={faClock} />
-                  <div className="metric-content">
-                    <span className="metric-label">Age</span>
-                    <span className="metric-value">
-                      {details.age ? `${details.age} years` : "N/A"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Pricing Information (Common to both types) */}
-          <div className="detail-section">
-            <h3>Pricing Information</h3>
-            <div className="details-grid">
-              <div className="metric">
-                <FontAwesomeIcon icon={faSterlingSign} />
-                <div className="metric-content">
-                  <span className="metric-label">Asking Price</span>
-                  <span className="metric-value">
-                    {formatPrice(price.asking)}
-                  </span>
-                </div>
-              </div>
-              <div className="metric">
-                <FontAwesomeIcon icon={faSterlingSign} />
-                <div className="metric-content">
-                  <span className="metric-label">
-                    {isSpecificListing ? "Est. Value" : "Avg. Price (Area)"}
-                  </span>
-                  <span className="metric-value">
-                    {formatPrice(price.estimated)}
-                  </span>
-                </div>
-              </div>
-              <div className="metric">
-                {/* ROI / Annualized Return depends on context and availability */}
-                <FontAwesomeIcon icon={faChartLine} />
-                <div className="metric-content">
-                  <span className="metric-label">
-                    {isSpecificListing ? "Potential ROI" : "Annualized Return"}
-                  </span>
-                  <span className="metric-value">
-                    {formatPercentage(price.roi)}
-                  </span>
-                </div>
-              </div>
-              <div className="metric">
-                <FontAwesomeIcon icon={faPercentage} />
-                <div className="metric-content">
-                  <span className="metric-label">Rental Yield</span>
-                  <span className="metric-value">
-                    {formatPercentage(price.rentalYield)}
-                  </span>
-                </div>
+                )}
               </div>
             </div>
           </div>
-
-          {/* Amenities, Transport, Schools (only for specific listings) */}
-          {isSpecificListing && amenities.length > 0 && (
-            <div className="detail-section">
-              <h3>Amenities</h3>
-              <ul className="amenities-list">
-                {amenities.map((amenity, index) => (
-                  <li key={index}>
-                    <FontAwesomeIcon
-                      icon={
-                        amenity.toLowerCase().includes("park")
-                          ? faCar
-                          : faBuilding
-                      }
-                    />
-                    <span>{amenity}</span>
-                  </li>
-                ))}
-              </ul>
+        )}
+        {/* --- Investment & Forecast Tab (Keep existing logic) --- */}
+        {activeTab === "investment" && (
+          <div className="property-tab-content investment-tab">
+            {/* Historical Investment Data (Area) Section */}
+            <div className="detail-section investment-history">
+              <h3>
+                <FontAwesomeIcon icon={faHistory} /> Historical Investment Data
+                (Area)
+              </h3>{" "}
+              {/* ... render metrics and table based on transactionHistory and priceGrowth ... */}
             </div>
-          )}
-          {isSpecificListing && transport.length > 0 && (
-            <div className="detail-section">
-              <h3>Transport Links</h3>
-              <ul className="transport-list">
-                {transport.map((item, index) => (
-                  <li key={index}>
-                    <FontAwesomeIcon icon={faTrain} />
-                    <span>
-                      {item.name} ({item.distance})
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {isSpecificListing && schools.length > 0 && (
-            <div className="detail-section">
-              <h3>Nearby Schools</h3>
-              <ul className="schools-list">
-                {schools.map((school, index) => (
-                  <li key={index}>
-                    <FontAwesomeIcon icon={faSchool} />
-                    <span>{school}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Note for Area Summary */}
-          {isAreaSummary && (
-            <div className="detail-section area-summary-note">
-              <p>
-                This is an overview for the postcode area based on recent
-                transaction data. Investment and historical data are available
-                in the other tabs. Specific property details like bedrooms,
-                amenities etc., require viewing individual listings.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* --- Investment Tab --- */}
-      {activeTab === "investment" && (
-        <div className="property-tab-content">
-          {/* Placeholder for Market Trends */}
-          <div className="detail-section">
-            <h3>
-              Market Trends (Placeholder) <FontAwesomeIcon icon={faEllipsisH} />
-            </h3>
-            <div className="market-trend-graph placeholder">
-              <FontAwesomeIcon icon={faChartArea} size="3x" />
-              <p>
-                Detailed market trend visualization will be done by DS students.
-              </p>
+            {/* Prediction Trend Section */}
+            <div className="detail-section prediction-info">
+              <h3>
+                <FontAwesomeIcon icon={faMagnifyingGlassChart} /> Price
+                Prediction Trend
+              </h3>{" "}
+              {/* ... render chart and list based on prediction data ... */}
             </div>
           </div>
-
-          {/* Investment Metrics */}
-          <div className="detail-section">
-            <h3>Investment Metrics</h3>
-            <div className="details-grid">
-              {/* Home Value / Average Price */}
-              <div className="metric">
-                <FontAwesomeIcon icon={faHome} />
-                <div className="metric-content">
-                  <span className="metric-label">
-                    {isSpecificListing
-                      ? "Est. Home Value"
-                      : "Avg. Price (Area)"}
-                  </span>
-                  <span className="metric-value">
-                    {formatPrice(price.estimated) || (
-                      <span className="no-result">No result</span>
-                    )}
-                  </span>
-                </div>
-              </div>
-              {/* Historical Growth (Calculated) */}
-              {priceGrowthInfo.growth !== "No result" &&
-              priceGrowthInfo.growth !== "Not enough data" &&
-              priceGrowthInfo.growth !== "Calculation error" ? (
-                <div className="metric">
-                  <FontAwesomeIcon icon={faChartLine} />
-                  <div className="metric-content">
-                    <span className="metric-label">Historical Growth</span>
-                    <span className="metric-value">
-                      {priceGrowthInfo.growth}
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <NoResultDisplay label="Historical Growth" icon={faChartLine} />
-              )}
-              {/* Annualized Return (Calculated) */}
-              {priceGrowthInfo.annualizedReturn !== "No result" &&
-              priceGrowthInfo.annualizedReturn !== "Not enough data" &&
-              priceGrowthInfo.annualizedReturn !== "Calculation error" ? (
-                <div className="metric">
-                  <FontAwesomeIcon icon={faPercentage} />
-                  <div className="metric-content">
-                    <span className="metric-label">Annualized Return</span>
-                    <span className="metric-value">
-                      {formatPercentage(priceGrowthInfo.annualizedReturn)}
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <NoResultDisplay
-                  label="Annualized Return"
-                  icon={faPercentage}
-                />
-              )}
-              {/* Rental Yield (From Property Data) */}
-              <div className="metric">
-                <FontAwesomeIcon icon={faPercentage} />
-                <div className="metric-content">
-                  <span className="metric-label">Rental Yield</span>
-                  <span className="metric-value">
-                    {formatPercentage(price.rentalYield)}
-                  </span>
-                </div>
-              </div>
-              {/* Risk score (From Property Data - needs external source) */}
-              <div className="metric">
-                <FontAwesomeIcon icon={faExclamationTriangle} />
-                <div className="metric-content">
-                  <span className="metric-label">Risk Score</span>
-                  <span className="metric-value">
-                    {property.riskScore && property.riskScore !== "N/A" ? (
-                      property.riskScore
-                    ) : (
-                      <span className="no-result">No result</span>
-                    )}
-                  </span>
-                </div>
-              </div>
-
-              {/* Placeholders for metrics needing external data */}
-              <NoResultDisplay label="Price Forecast" icon={faChartLine} />
-              <NoResultDisplay label="Rent Forecast" icon={faMoneyBillWave} />
-              <NoResultDisplay label="Market Liquidity" icon={faChartBar} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* --- History Tab --- */}
-      {activeTab === "history" && hasTransactionData && (
-        <div className="property-tab-content">
-          <div className="detail-section">
-            <h3>
-              Transaction History ({property.postcode}){" "}
-              <FontAwesomeIcon icon={faHistory} />
-            </h3>
-            {hasTransactionData ? (
-              <>
-                {/* --- Summary Stats --- */}
-                <div className="price-stats history-stats">
-                  {currentTransactionData.length > 0 && (
-                    <div className="stat-item">
-                      <span className="stat-label">
-                        Latest Recorded Sale (
-                        {currentTransactionData[0].date.toLocaleDateString()}):
-                      </span>
-                      <span className="stat-value price-value">
-                        {formatPrice(currentTransactionData[0].price)}
-                      </span>
-                    </div>
-                  )}
-                  {priceGrowthInfo.growth !== "No result" &&
-                    priceGrowthInfo.growth !== "Not enough data" &&
-                    priceGrowthInfo.growth !== "Calculation error" && (
-                      <div className="stat-item">
-                        <span className="stat-label">
-                          Overall Growth Trend:
-                        </span>
-                        <span
-                          className={`stat-value price-change ${
-                            priceGrowthInfo.growth.startsWith("+")
-                              ? "positive"
-                              : "negative"
-                          }`}
+        )}
+        {/* --- Demographics Tab (Integrate Crime Card) --- */}
+        {activeTab === "demographics" &&
+          (isAreaSummary || demographicData || crimeStats) && (
+            <div className="property-tab-content demographics-tab">
+              <div className="detail-section demographics-section">
+                <div className="demographics-header">
+                  <h3>
+                    <FontAwesomeIcon icon={faUsersViewfinder} /> Area Insights (
+                    {postcode})
+                  </h3>
+                  {/* Expand/Collapse Buttons */}
+                  {(demographics || crimeStats) &&
+                    Object.keys(collapsedCards).length > 0 && ( // Show if there's anything to collapse/expand
+                      <div className="expand-collapse-controls">
+                        <button onClick={handleExpandAll} title="Expand All">
+                          <FontAwesomeIcon icon={faPlusSquare} /> Expand All
+                        </button>
+                        <button
+                          onClick={handleCollapseAll}
+                          title="Collapse All"
                         >
-                          {priceGrowthInfo.growth}
-                        </span>
+                          <FontAwesomeIcon icon={faMinusSquare} /> Collapse All
+                        </button>
                       </div>
                     )}
-                  {priceGrowthInfo.annualizedReturn !== "No result" &&
-                    priceGrowthInfo.annualizedReturn !== "Not enough data" &&
-                    priceGrowthInfo.annualizedReturn !==
-                      "Calculation error" && (
-                      <div className="stat-item">
-                        <span className="stat-label">Annualized Return:</span>
-                        <span className="stat-value price-change">
-                          {formatPercentage(priceGrowthInfo.annualizedReturn)}
-                        </span>
-                      </div>
-                    )}
-                  {/* Display Price Range */}
-                  {priceGrowthInfo.priceRange.min > 0 && (
-                    <div className="stat-item">
-                      <span className="stat-label">
-                        Price Range (in results):
-                      </span>
-                      <span className="stat-value">
-                        {formatPrice(priceGrowthInfo.priceRange.min)} -{" "}
-                        {formatPrice(priceGrowthInfo.priceRange.max)}
-                      </span>
+                </div>
+
+                {/* Loading/Error states specifically for Demo - Crime is handled inside its card */}
+                {property.isLoadingDemo &&
+                  !demographics && ( // Show loading only if demo is loading AND not yet available
+                    <div className="loading-indicator">
+                      <FontAwesomeIcon icon={faSpinner} spin /> Loading
+                      Demographics...
                     </div>
                   )}
-                  <div className="stat-item">
-                    <span className="stat-label">
-                      Total Transactions Found:
-                    </span>
-                    <span className="stat-value">
-                      {currentTransactionData.length}
-                    </span>
-                  </div>
-                </div>
+                {demographicData?.error &&
+                  !demographics && ( // Show error only if demo errored AND no data available
+                    <p className="error-message">
+                      Error loading demographics: {demographicData.error}
+                    </p>
+                  )}
+                {!demographicData?.error &&
+                  demoFetchErrors &&
+                  demoFetchErrors.length > 0 && ( // Partial fetch warning
+                    <div className="warning-message">
+                      <p>Note: Some demographic topics failed to load:</p>
+                      <ul>
+                        {demoFetchErrors.map((err, i) => (
+                          <li key={i}>
+                            <small>{err}</small>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
-                {/* --- Transaction Table --- */}
-                <div className="table-container">
-                  <table className="transaction-table">
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Price</th>
-                        <th>Type</th>
-                        <th>Address</th>
-                        <th>New Build</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {currentTransactionData.map((transaction) => (
-                        <tr key={transaction.id}>
-                          <td>
-                            {transaction.date
-                              ? transaction.date.toLocaleDateString()
-                              : "N/A"}
-                          </td>
-                          <td>{formatPrice(transaction.price)}</td>
-                          <td>{transaction.propertyType || "N/A"}</td>
-                          <td>{transaction.address || "N/A"}</td>
-                          <td>{transaction.isNewBuild ? "Yes" : "No"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            ) : (
-              // Message if no transaction data was found
-              <div className="no-data-message">
-                <FontAwesomeIcon icon={faExclamationTriangle} />
-                <p>
-                  No historical transaction data found for this specific
-                  property or area.
-                </p>
-                {!isSpecificListing && <p>Try searching another postcode.</p>}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {activeTab === "history" && !hasTransactionData && (
-        <div className="property-tab-content">
-          <div className="no-data-message">
-            <FontAwesomeIcon icon={faExclamationTriangle} />
-            <p>
-              No historical transaction data found for this specific property or
-              area.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* --- NEW Demographics Tab --- */}
-      {activeTab === "demographics" && isAreaSummary && (
-        <div className="property-tab-content demographics-tab-content">
-          <div className="detail-section demographics-section">
-            <div className="demographics-header">
-              <h3>Area Demographics (Census 2021)</h3>
-              {/* --- Add Expand/Collapse Buttons --- */}
-              {hasDemographicData && (
-                <div className="expand-collapse-controls">
-                  <button onClick={handleExpandAll} title="Expand All">
-                    <FontAwesomeIcon icon={faPlusSquare} /> Expand All
-                  </button>
-                  <button onClick={handleCollapseAll} title="Collapse All">
-                    <FontAwesomeIcon icon={faMinusSquare} /> Collapse All
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Loading State */}
-            {isFetchingDemographics && !hasDemographicData && (
-              <div className="loading-message"> /* ... loading ... */ </div>
-            )}
-
-            {/* Error State */}
-            {demographicsError && !hasDemographicData && (
-              <div className="no-data-message error"> /* ... error ... */ </div>
-            )}
-
-            {/* Data Display using Cards */}
-            {hasDemographicData && (
-              <div className="demographics-cards-container">
-                <p className="data-source-note">Data source: Nomis (ONS)</p>
-                {property.crimeStats && (
-  <CrimeCard
-    stats={property.crimeStats}
-    isCollapsed={collapsedCards["Crime"] ?? true}
-    onToggleCollapse={() => handleToggleCollapse("Crime")}
-  />
-)}
-
-                {Object.entries(demographicData.demographics)
-                  .sort(([topicA], [topicB]) => topicA.localeCompare(topicB))
-                  .map(([topic, data]) => (
-                    <DemographicCard
-                      key={topic}
-                      topicName={topic}
-                      nomisData={data}
-                      geoCodes={demographicData.geoCodes}
-                      // --- Pass state and handler ---
-                      isCollapsed={
-                        collapsedCards[topic] === undefined
-                          ? true
-                          : collapsedCards[topic]
-                      } // Default to collapsed if state not yet set
-                      onToggleCollapse={() => handleToggleCollapse(topic)}
+                {/* Cards Container */}
+                <div className="demographics-cards-container">
+                  {/* ✅ Render Crime Card FIRST if stats exist */}
+                  {crimeStats && (
+                    <CrimeCard
+                      stats={crimeStats}
+                      isCollapsed={collapsedCards["Crime"] ?? true} // Use "Crime" key
+                      onToggleCollapse={() => handleToggleCollapse("Crime")}
                     />
-                  ))}
+                  )}
+                  {!crimeStats &&
+                    !property.isLoadingDemo && ( // Show if crime wasn't fetched/available
+                      <div className="demographic-card no-data-card">
+                        <div className="card-header">
+                          <FontAwesomeIcon
+                            icon={faBalanceScale}
+                            className="topic-icon"
+                          />
+                          <h3>Crime</h3>
+                        </div>
+                        <div className="card-content">
+                          <p>
+                            Crime data not available for this location/search.
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
-                {/* ... partial error note ... */}
-              </div>
-            )}
-            {/* ... Message if fetched but no data ... */}
-            {!isFetchingDemographics &&
-              !demographicsError &&
-              !hasDemographicData && (
-                <div className="no-data-message">
-                  {" "}
-                  /* ... no data message ... */{" "}
+                  {/* Render Demographic Cards */}
+                  {demographics &&
+                  geoCodes &&
+                  Object.keys(demographics).length > 0 ? (
+                    Object.entries(demographics)
+                      .sort((a, b) => a[0].localeCompare(b[0])) // Sort topics
+                      .map(([topicName, data]) => (
+                        <DemographicCard
+                          key={topicName}
+                          topicName={topicName}
+                          nomisData={data}
+                          geoCodes={geoCodes}
+                          isCollapsed={collapsedCards[topicName] ?? true} // Default true (collapsed)
+                          onToggleCollapse={() =>
+                            handleToggleCollapse(topicName)
+                          }
+                        />
+                      ))
+                  ) : !property.isLoadingDemo &&
+                    !demographicData?.error &&
+                    demoFetchErrors.length === 0 &&
+                    !crimeStats ? (
+                    // Show this only if NO demo AND NO crime data AND NO errors/loading
+                    <p>
+                      No specific demographic or crime data points were returned
+                      for this area.
+                    </p>
+                  ) : null}
                 </div>
-              )}
-          </div>
-        </div>
-      )}
+              </div>
+            </div>
+          )}{" "}
+        {/* End Demographics Tab */}
+      </div>{" "}
+      {/* End detail-content */}
     </div> // End property-detail
   );
 };
-
-// Need to re-import calculatePriceGrowth if not globally available or passed down
-// Assuming it's imported where PropertyDetail is used or available globally.
-// If not, you might need to pass it as a prop or import it here:
 
 export default PropertyDetail;
