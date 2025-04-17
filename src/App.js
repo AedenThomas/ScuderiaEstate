@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import "./App.css";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import L from "leaflet"; // Import L for default icon fix
+import L from "leaflet";
 
 import HeatmapLayer from "./components/HeatmapLayer";
 import PropertyCard from "./components/PropertyCard";
@@ -14,7 +14,6 @@ import {
   calculatePriceGrowth,
 } from "./services/landRegistryService";
 import { fetchDemographicData } from "./services/demographicsService";
-// import { fetchScrapedListings } from "./services/listingsService";
 
 // Fix default Leaflet icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -23,6 +22,97 @@ L.Icon.Default.mergeOptions({
   iconUrl: require("leaflet/dist/images/marker-icon.png"),
   shadowUrl: require("leaflet/dist/images/marker-shadow.png"),
 });
+
+// --- Helper Function for Prediction Input Preparation ---
+const preparePredictionInputs = (listing, postcode) => {
+  const inputs = {
+    postcode: postcode || "N/A", // Use the active search postcode
+    propertytype: "Terraced", // Default
+    duration: "Freehold", // Default assumption
+    numberrooms: 3, // Default
+    tfarea: 70, // Default in sqm
+    property_age: 20, // Default
+  };
+
+  // Property Type Mapping
+  const typeMap = {
+    detached: "Detached",
+    "semi-detached": "Semi-Detached",
+    terraced: "Terraced",
+    "end of terrace": "Terraced", // Map variations
+    flat: "Flats",
+    apartment: "Flats",
+    maisonette: "Flats",
+    bungalow: "Detached", // Or map to specific if model handles it
+    // Add other mappings as needed based on scraper output
+  };
+  if (listing.property_type && typeof listing.property_type === "string") {
+    const lowerType = listing.property_type.toLowerCase();
+    inputs.propertytype = typeMap[lowerType] || "Terraced"; // Use mapped or default
+  }
+
+  // Duration (Tenure) Assumption based on Type
+  if (inputs.propertytype === "Flats") {
+    inputs.duration = "Leasehold";
+  } else {
+    inputs.duration = "Freehold";
+  }
+
+  // Number of Rooms (from Bedrooms)
+  if (listing.bedrooms && typeof listing.bedrooms === "string") {
+    const numMatch = listing.bedrooms.match(/\d+/);
+    if (numMatch) {
+      inputs.numberrooms = parseInt(numMatch[0], 10);
+    }
+  } else if (typeof listing.bedrooms === "number" && listing.bedrooms > 0) {
+    inputs.numberrooms = listing.bedrooms;
+  }
+  // Ensure minimum 1 room
+  if (inputs.numberrooms < 1) {
+    inputs.numberrooms = 1;
+  }
+
+  // Total Floor Area (from square_footage)
+  if (
+    listing.square_footage &&
+    typeof listing.square_footage === "string" &&
+    listing.square_footage !== "N/A"
+  ) {
+    const sqftText = listing.square_footage.replace(/,/g, ""); // Remove commas
+    const sqftMatch = sqftText.match(/(\d+(\.\d+)?)\s*sq\s*ft/i);
+    const sqmMatch =
+      sqftText.match(/(\d+(\.\d+)?)\s*m²/i) ||
+      sqftText.match(/(\d+(\.\d+)?)\s*sqm/i);
+
+    if (sqmMatch) {
+      inputs.tfarea = parseFloat(sqmMatch[1]);
+    } else if (sqftMatch) {
+      const sqft = parseFloat(sqftMatch[1]);
+      inputs.tfarea = Math.round(sqft / 10.764); // Convert sqft to sqm
+    } else {
+      // Try parsing if it's just a number (assume sqm?) - Less reliable
+      const numMatch = sqftText.match(/^\d+(\.\d+)?$/);
+      if (numMatch) {
+        console.warn(
+          `Assuming square_footage "${listing.square_footage}" is in sqm.`
+        );
+        inputs.tfarea = parseFloat(numMatch[0]);
+      }
+    }
+  }
+  // Ensure minimum area
+  if (inputs.tfarea <= 0) {
+    console.warn(`Invalid tfarea calculated for ${listing.id}. Using default.`);
+    inputs.tfarea = 70;
+  }
+
+  // Property Age (Using default for now)
+  // You could add logic here to parse description for "new build" etc. if desired
+  inputs.property_age = 20;
+
+  console.log("Prepared Prediction Inputs:", inputs);
+  return inputs;
+};
 
 // --- Geocoding Function ---
 const getCoordinatesFromPostcode = async (postcode) => {
@@ -103,42 +193,22 @@ function MapController({ center, zoom }) {
 // --- Main App Component ---
 function App() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeSearchPostcode, setActiveSearchPostcode] = useState(""); // Track the postcode being searched
-  const [isSearchingLRDemo, setIsSearchingLRDemo] = useState(false); // Loading state for LR/Demo
-  const [searchResults, setSearchResults] = useState(null); // For LR/Demo results/errors
+  const [activeSearchPostcode, setActiveSearchPostcode] = useState("");
+  const [isSearchingLRDemo, setIsSearchingLRDemo] = useState(false);
+  const [searchResults, setSearchResults] = useState(null);
   const [selectedProperty, setSelectedProperty] = useState(null);
   const [view, setView] = useState("listings");
   const [mapCenter, setMapCenter] = useState([54.57, -1.23]);
   const [mapZoom, setMapZoom] = useState(13);
   const [heatmapPoints, setHeatmapPoints] = useState([]);
 
-  // --- State for Scraped Listings (SSE) ---
   const [scrapedListings, setScrapedListings] = useState([]);
-  const [isFetchingScraper, setIsFetchingScraper] = useState(false); // Loading state specifically for scraper
+  const [isFetchingScraper, setIsFetchingScraper] = useState(false);
   const [scraperError, setScraperError] = useState(null);
   const [isScrapingComplete, setIsScrapingComplete] = useState(false);
-  const eventSourceRef = useRef(null); // Ref to hold the EventSource instance
+  const eventSourceRef = useRef(null);
 
-  // Determine if the main loading screen should be visible
-  // Show full-screen loader when we're loading AND either:
-  // 1. No properties found yet OR
-  // 2. We're within 2 seconds of starting the search (for a smoother UX)
-  const [searchStartTime, setSearchStartTime] = useState(null);
-  const isLoading =
-    (isFetchingScraper || isSearchingLRDemo) &&
-    (scrapedListings.length === 0 ||
-      (searchStartTime && Date.now() - searchStartTime < 2000));
-
-  // Get a loading message based on current state
-  const getLoadingMessage = () => {
-    if (!activeSearchPostcode) return "Preparing search...";
-    if (scrapedListings.length > 0)
-      return `Found ${scrapedListings.length} properties...`;
-    return `Searching ${activeSearchPostcode}`;
-  };
-
-  // --- Sample Featured Properties ---
-  const sampleProperties = [
+  const [featuredProperties] = useState([
     {
       id: 1,
       title: "Modern Apartment in Chelsea",
@@ -179,18 +249,29 @@ function App() {
       image: "https://placehold.co/600x400/cccccc/1d1d1d?text=Kensington+Loft",
       source: "Featured",
     },
-  ];
-  const [featuredProperties] = useState([...sampleProperties]);
+  ]);
+
+  // Determine if the main loading screen should be visible
+  const [searchStartTime, setSearchStartTime] = useState(null);
+  const isLoading =
+    (isFetchingScraper || isSearchingLRDemo) &&
+    (scrapedListings.length === 0 ||
+      (searchStartTime && Date.now() - searchStartTime < 2000));
+
+  const getLoadingMessage = () => {
+    if (!activeSearchPostcode) return "Preparing search...";
+    if (scrapedListings.length > 0)
+      return `Found ${scrapedListings.length} properties...`;
+    return `Searching ${activeSearchPostcode}`;
+  };
 
   // --- Search Handler ---
   const startScraperStream = useCallback((postcode) => {
-    // Clear previous scraper state
     setScrapedListings([]);
     setScraperError(null);
     setIsScrapingComplete(false);
-    setIsFetchingScraper(true); // Set loading true when starting
+    setIsFetchingScraper(true);
 
-    // Close existing connection if any
     if (eventSourceRef.current) {
       console.log("Closing previous EventSource connection.");
       eventSourceRef.current.close();
@@ -201,29 +282,21 @@ function App() {
     }/api/scrape-listings?postcode=${encodeURIComponent(postcode)}`;
     console.log(`Connecting to SSE: ${url}`);
     const es = new EventSource(url);
-    eventSourceRef.current = es; // Store reference
+    eventSourceRef.current = es;
 
     es.onopen = () => {
       console.log("SSE Connection Opened");
-      // Still fetching until first message or complete/error
     };
 
-    // Listener for property data messages
     es.onmessage = (event) => {
-      // console.log("SSE message:", event.data); // Can be very verbose
       try {
         const propertyData = JSON.parse(event.data);
-        // Add the new property to the state
         setScrapedListings((prevListings) => [...prevListings, propertyData]);
-        // Optional: Update map center based on first received listing?
-        // if (scrapedListings.length === 0 && propertyData.latitude && propertyData.longitude) { ... }
       } catch (error) {
         console.error("Failed to parse SSE property data:", event.data, error);
-        // Decide if this should be a user-facing error
       }
     };
 
-    // Listener for custom 'error' events
     es.addEventListener("error", (event) => {
       console.error("SSE 'error' event received:", event.data);
       try {
@@ -232,54 +305,45 @@ function App() {
       } catch (e) {
         setScraperError("Received an unparsable error from scraper.");
       }
-      setIsFetchingScraper(false); // Stop loading on error
-      setIsScrapingComplete(true); // Mark as complete (even though it errored)
-      es.close(); // Close connection on error event
+      setIsFetchingScraper(false);
+      setIsScrapingComplete(true);
+      es.close();
       eventSourceRef.current = null;
     });
 
-    // Listener for custom 'status' events (e.g., no_results, initialized)
     es.addEventListener("status", (event) => {
       console.log("SSE 'status' event received:", event.data);
       try {
         const statusData = JSON.parse(event.data);
         if (statusData.status === "no_results") {
           console.log("Scraper reported no results found.");
-          // You could set a specific message here if needed
-          // setScraperStatusMessage("No listings found for this area.");
         } else if (statusData.status === "initialized") {
           console.log("Scraper initialized and starting search");
-          // Keep the loading state active
         }
       } catch (e) {
         console.error("Failed to parse SSE status data:", event.data, e);
       }
-      // Don't close connection on status update usually
     });
 
-    // Listener for custom 'complete' events
     es.addEventListener("complete", (event) => {
       console.log("SSE 'complete' event received:", event.data);
       setIsScrapingComplete(true);
-      setIsFetchingScraper(false); // Stop loading on completion
-      es.close(); // Close connection on complete event
+      setIsFetchingScraper(false);
+      es.close();
       eventSourceRef.current = null;
     });
 
-    // Listener for fundamental connection errors
     es.onerror = (err) => {
       console.error("EventSource failed:", err);
       setScraperError("Connection error while fetching listings.");
-      setIsFetchingScraper(false); // Stop loading on connection error
-      setIsScrapingComplete(true); // Mark as complete (due to error)
-      es.close(); // Close the connection
+      setIsFetchingScraper(false);
+      setIsScrapingComplete(true);
+      es.close();
       eventSourceRef.current = null;
     };
-  }, []); // No dependencies needed for the function definition itself
+  }, []);
 
-  // --- Cleanup Effect for EventSource ---
   useEffect(() => {
-    // Return a cleanup function that will be called when the component unmounts
     return () => {
       if (eventSourceRef.current) {
         console.log("Closing EventSource connection on component unmount.");
@@ -287,9 +351,8 @@ function App() {
         eventSourceRef.current = null;
       }
     };
-  }, []); // Empty dependency array ensures this runs only once on mount/unmount
+  }, []);
 
-  // --- Search Handler - Initiates all fetches ---
   const handleSearch = useCallback(
     async (e) => {
       if (e) e.preventDefault();
@@ -299,7 +362,6 @@ function App() {
 
       if (!query || !postcodeRegex.test(query)) {
         setSearchResults({ errorMessage: "Please enter a valid UK postcode." });
-        // Clear previous search state
         setActiveSearchPostcode("");
         setScrapedListings([]);
         setScraperError(null);
@@ -309,30 +371,25 @@ function App() {
         if (eventSourceRef.current) {
           eventSourceRef.current.close();
           eventSourceRef.current = null;
-        } // Close existing stream
+        }
         return;
       }
 
-      // --- Reset State for NEW search ---
-      setIsSearchingLRDemo(true); // Start LR/Demo loading
+      setIsSearchingLRDemo(true);
       setSearchResults(null);
       setSelectedProperty(null);
       setView("listings");
       setHeatmapPoints([]);
-      setActiveSearchPostcode(query); // Set the postcode that triggers effects/streams
-      setSearchStartTime(Date.now()); // Record search start time for UX timing
+      setActiveSearchPostcode(query);
+      setSearchStartTime(Date.now());
 
-      // --- Start Scraper Stream ---
-      // This function call now just *starts* the stream, doesn't wait for it
       startScraperStream(query);
 
-      // --- Fetch LR/Demo Data Concurrently (still useful for heatmap/detail view) ---
       let fetchedCoordinates = null;
       let landRegistryError = null;
       let demoError = null;
 
       try {
-        // Geocode first
         fetchedCoordinates = await getCoordinatesFromPostcode(query);
         if (fetchedCoordinates) {
           setMapCenter([fetchedCoordinates.lat, fetchedCoordinates.lng]);
@@ -382,7 +439,6 @@ function App() {
                 demographicsResult = value.data || null;
             }
           } else {
-            /* Handle rejected LR/Demo promises */
             const reason = result.reason?.message || "Unknown fetch error";
             console.error("A LR/Demo fetch promise was rejected:", reason);
             if (
@@ -395,7 +451,6 @@ function App() {
           }
         });
 
-        // Create Heatmap (remains the same logic)
         if (transactions.length > 0 && fetchedCoordinates) {
           const prices = transactions
             .map((t) => t.price)
@@ -429,7 +484,6 @@ function App() {
           setHeatmapPoints([]);
         }
 
-        // Set overall search status (primarily based on LR/Demo now)
         if (
           !transactions.length &&
           !demographicsResult &&
@@ -443,10 +497,9 @@ function App() {
               combinedError || "No historical or demographic data found.",
           });
         } else {
-          setSearchResults({ success: true }); // Indicate LR/Demo fetch completed
+          setSearchResults({ success: true });
         }
       } catch (error) {
-        // Catch geocoding errors etc.
         console.error("Error during LR/Demo fetch execution:", error);
         setSearchResults({
           errorMessage: `Area data fetch failed: ${
@@ -455,21 +508,21 @@ function App() {
         });
         setHeatmapPoints([]);
       } finally {
-        setIsSearchingLRDemo(false); // Finish LR/Demo loading
+        setIsSearchingLRDemo(false);
       }
     },
-    [searchQuery, startScraperStream] // Include startScraperStream dependency
+    [searchQuery, startScraperStream]
   );
 
-  // --- Handler for viewing SCRAPED property details (needs updating) ---
   const handleViewScrapedProperty = useCallback(
     async (scrapedListing) => {
-      // This function now relies MORE on the initial scrapedListing data,
-      // but we still fetch LR/Demo for the detail view enhancement.
-      if (!activeSearchPostcode) return; // Need the postcode used for the search
+      if (!activeSearchPostcode) {
+        console.error("Cannot view details without an active search postcode.");
+        return;
+      }
 
       console.log("Viewing scraped property:", scrapedListing);
-      setHeatmapPoints([]); // Clear heatmap
+      setHeatmapPoints([]);
 
       const lat = scrapedListing.latitude
         ? parseFloat(scrapedListing.latitude)
@@ -480,14 +533,13 @@ function App() {
       const validCoordinates =
         lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon);
 
-      // Use activeSearchPostcode for consistency
       const initialProperty = {
         id: scrapedListing.id || `scraped-${Date.now()}`,
         title: scrapedListing.address || "Scraped Listing",
         location:
           scrapedListing.address?.split(",").slice(-2).join(", ").trim() ||
           "Unknown Location",
-        postcode: activeSearchPostcode.toUpperCase(), // Use the postcode from the active search
+        postcode: activeSearchPostcode.toUpperCase(),
         coordinates: validCoordinates ? [lat, lon] : null,
         details: {
           bedrooms: scrapedListing.bedrooms || "N/A",
@@ -500,16 +552,8 @@ function App() {
           asking: scrapedListing.price || "N/A",
           estimated: "Loading...",
           roi: "Loading...",
-          rentalYield: "N/A",
         },
         description: scrapedListing.description || "",
-        amenities: [],
-        transport: [],
-        schools: [],
-        riskScore: "N/A",
-        image: `https://placehold.co/600x400/d1c4e9/4527a0?text=${encodeURIComponent(
-          scrapedListing.address?.split(",")[0] || "Listing"
-        )}`,
         source: scrapedListing.source || "Rightmove",
         detail_url: scrapedListing.detail_url,
         transactionHistory: null,
@@ -517,6 +561,9 @@ function App() {
         demographicData: null,
         isLoadingLR: true,
         isLoadingDemo: true,
+        predictionResults: [],
+        isLoadingPrediction: true,
+        predictionError: null,
       };
 
       setSelectedProperty(initialProperty);
@@ -526,89 +573,124 @@ function App() {
         setMapZoom(17);
       }
 
-      // --- Asynchronously fetch LR and Demo data using the activeSearchPostcode ---
-      try {
-        console.log(
-          `Fetching LR/Demo for detail view (postcode: ${activeSearchPostcode})`
-        );
-        const lrPromise = fetchPropertyDataByPostcode(
-          activeSearchPostcode
-        ).then(formatTransactionData);
-        const demoPromise = fetchDemographicData(activeSearchPostcode);
+      const predictionInputs = preparePredictionInputs(
+        scrapedListing,
+        activeSearchPostcode
+      );
+      const predictApiUrl = `${
+        process.env.REACT_APP_API_BASE_URL || "http://localhost:3001"
+      }/api/predict-price`;
+      const predictionPromise = fetch(predictApiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ ...predictionInputs, num_years: 5 }),
+      })
+        .then(async (response) => {
+          const result = await response.json();
+          if (!response.ok) {
+            throw new Error(
+              result.error || `Prediction failed: ${response.status}`
+            );
+          }
+          if (!result || !Array.isArray(result.predictions)) {
+            throw new Error("Invalid prediction response format");
+          }
+          return result.predictions;
+        })
+        .catch((error) => {
+          console.error("Prediction API Error:", error);
+          return { error: error.message || "Failed to fetch prediction." };
+        });
 
-        const [lrResult, demoResult] = await Promise.allSettled([
-          lrPromise,
-          demoPromise,
-        ]);
+      const lrPromise = fetchPropertyDataByPostcode(activeSearchPostcode)
+        .then(formatTransactionData)
+        .catch((err) => ({
+          isLrError: true,
+          error: err.message || "Failed to load transaction history.",
+        }));
+
+      const demoPromise = fetchDemographicData(activeSearchPostcode).catch(
+        (err) => ({
+          isDemoError: true,
+          error: err.message || "Failed to load demographics.",
+        })
+      );
+
+      const [predictionResult, lrResult, demoResult] = await Promise.allSettled(
+        [predictionPromise, lrPromise, demoPromise]
+      );
+
+      setSelectedProperty((prev) => {
+        if (!prev || prev.id !== initialProperty.id) return prev;
+
+        const updates = { ...prev };
+
+        if (predictionResult.status === "fulfilled") {
+          if (predictionResult.value.error) {
+            updates.predictionError = predictionResult.value.error;
+            updates.predictionResults = [];
+          } else {
+            updates.predictionResults = predictionResult.value;
+            updates.predictionError = null;
+          }
+        } else {
+          updates.predictionError =
+            predictionResult.reason?.message || "Prediction fetch rejected.";
+          updates.predictionResults = [];
+        }
+        updates.isLoadingPrediction = false;
 
         let fetchedTransactions = [];
-        let fetchedDemographics = null;
         let detailLrError = null;
-        let detailDemoError = null;
-
         if (lrResult.status === "fulfilled") {
-          fetchedTransactions = lrResult.value || [];
+          if (lrResult.value.isLrError) {
+            detailLrError = lrResult.value.error;
+          } else {
+            fetchedTransactions = lrResult.value || [];
+          }
         } else {
-          detailLrError =
-            lrResult.reason?.message || "Failed to load transaction history.";
-          console.error("Detail LR Error:", detailLrError);
+          detailLrError = lrResult.reason?.message || "LR fetch rejected.";
         }
-
-        if (demoResult.status === "fulfilled") {
-          fetchedDemographics = demoResult.value || null;
-        } else {
-          detailDemoError =
-            demoResult.reason?.message || "Failed to load demographics.";
-          console.error("Detail Demo Error:", detailDemoError);
-          fetchedDemographics = { error: detailDemoError };
-        }
-
-        const priceGrowthMetrics =
+        updates.transactionHistory = detailLrError ? [] : fetchedTransactions;
+        updates.priceGrowth =
           !detailLrError && fetchedTransactions.length > 0
             ? calculatePriceGrowth(fetchedTransactions)
-            : null;
-        const estimatedPrice =
+            : {
+                growth: detailLrError || "N/A",
+                annualizedReturn: detailLrError || "N/A",
+              };
+        updates.price.estimated =
           !detailLrError && fetchedTransactions.length > 0
             ? `£${Math.round(
                 fetchedTransactions.reduce((sum, t) => sum + t.price, 0) /
                   fetchedTransactions.length
               ).toLocaleString()}`
             : "N/A";
+        updates.price.roi = updates.priceGrowth?.annualizedReturn || "N/A";
+        updates.isLoadingLR = false;
 
-        setSelectedProperty((prev) => {
-          if (!prev || prev.id !== initialProperty.id) return prev;
-          return {
-            ...prev,
-            transactionHistory: detailLrError ? [] : fetchedTransactions,
-            priceGrowth: priceGrowthMetrics || {
-              growth: detailLrError || "N/A",
-              annualizedReturn: detailLrError || "N/A",
-            },
-            price: {
-              ...prev.price,
-              estimated: estimatedPrice,
-              roi: priceGrowthMetrics?.annualizedReturn || "N/A",
-            },
-            demographicData: fetchedDemographics,
-            isLoadingLR: false,
-            isLoadingDemo: false,
+        if (demoResult.status === "fulfilled") {
+          if (demoResult.value.isDemoError) {
+            updates.demographicData = { error: demoResult.value.error };
+          } else {
+            updates.demographicData = demoResult.value || null;
+          }
+        } else {
+          updates.demographicData = {
+            error: demoResult.reason?.message || "Demo fetch rejected.",
           };
-        });
-      } catch (error) {
-        /* ... existing error handling ... */
-        console.error("Unexpected error fetching detail LR/Demo:", error);
-        setSelectedProperty((prev) => {
-          if (!prev || prev.id !== initialProperty.id) return prev;
-          return {
-            /* ... set error states ... */
-          };
-        });
-      }
+        }
+        updates.isLoadingDemo = false;
+
+        return updates;
+      });
     },
-    [activeSearchPostcode] // Depends on the postcode used for the search
+    [activeSearchPostcode]
   );
 
-  // --- Handlers for Featured Properties (remain the same) ---
   const handleViewFeaturedProperty = useCallback((property) => {
     setScrapedListings([]);
     setScraperError(null);
@@ -631,7 +713,6 @@ function App() {
     setView("listings");
   }, []);
 
-  // --- Render ---
   return (
     <div className="App">
       <LoadingScreen
@@ -649,7 +730,7 @@ function App() {
               placeholder="Enter UK Postcode (e.g., SW1A 0AA)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              disabled={isSearchingLRDemo || isFetchingScraper} // Disable if any loading is happening
+              disabled={isSearchingLRDemo || isFetchingScraper}
             />
             <button
               type="submit"
@@ -661,9 +742,7 @@ function App() {
             </button>
           </form>
 
-          {/* Display Search Status/Errors - Keep this for non-blocking feedback once properties start appearing */}
           <div className="search-status-container">
-            {/* Combined Loading Indicator - Keep for in-progress feedback */}
             {(isSearchingLRDemo || isFetchingScraper) &&
               scrapedListings.length > 0 && (
                 <div className="search-status info-message loading-indicator">
@@ -677,19 +756,16 @@ function App() {
                   </p>
                 </div>
               )}
-            {/* Scraper Error */}
             {scraperError && (
               <div className="search-status error-message">
                 <p>Listings Error: {scraperError}</p>
               </div>
             )}
-            {/* LR/Demo Error */}
             {searchResults?.errorMessage && (
               <div className="search-status error-message">
                 <p>Area Data Error: {searchResults.errorMessage}</p>
               </div>
             )}
-            {/* Completion Message */}
             {isScrapingComplete && !scraperError && (
               <div className="search-status info-message">
                 <p>
@@ -714,7 +790,6 @@ function App() {
               <HeatmapLayer data={heatmapPoints} />
             )}
 
-            {/* Markers for FEATURED Properties */}
             {view === "listings" &&
               featuredProperties.map(
                 (property) =>
@@ -739,7 +814,6 @@ function App() {
                   )
               )}
 
-            {/* Markers for SCRAPED Properties (updates based on scrapedListings state) */}
             {view === "listings" &&
               scrapedListings.map((listing, index) => {
                 const lat = parseFloat(listing.latitude);
@@ -774,7 +848,6 @@ function App() {
                 }
               })}
 
-            {/* Marker for Selected Property */}
             {view === "detail" &&
               selectedProperty &&
               selectedProperty.coordinates &&
@@ -801,12 +874,13 @@ function App() {
               property={selectedProperty}
               isLoadingLR={selectedProperty.isLoadingLR}
               isLoadingDemo={selectedProperty.isLoadingDemo}
+              predictionResults={selectedProperty.predictionResults}
+              isLoadingPrediction={selectedProperty.isLoadingPrediction}
+              predictionError={selectedProperty.predictionError}
               onBackToListings={handleBackToListings}
             />
           ) : (
-            // --- Listings View ---
             <>
-              {/* Display Scraped Listings Cards (updates as scrapedListings state grows) */}
               {scrapedListings.length > 0 && (
                 <div className="listings-section">
                   <h2>
@@ -832,28 +906,14 @@ function App() {
                                 .slice(-2)
                                 .join(", ")
                                 .trim() || activeSearchPostcode.toUpperCase(),
-                            postcode: activeSearchPostcode.toUpperCase(),
-                            coordinates: validCoordinates ? [lat, lon] : null,
+                            price: { asking: listing.price || "N/A" },
                             details: {
-                              bedrooms: listing.bedrooms,
-                              bathrooms: listing.bathrooms,
-                              sqft: listing.square_footage,
-                              propertyType: listing.property_type,
-                              age: "N/A",
-                            },
-                            price: {
-                              asking: listing.price,
-                              estimated: "N/A",
-                              roi: "N/A",
-                              rentalYield: "N/A",
+                              bedrooms: listing.bedrooms || "N/A",
+                              bathrooms: listing.bathrooms || "N/A",
                             },
                             image: `https://placehold.co/600x400/d1c4e9/4527a0?text=${encodeURIComponent(
                               listing.address?.split(",")[0] || "Listing"
                             )}`,
-                            amenities: [],
-                            transport: [],
-                            schools: [],
-                            riskScore: "N/A",
                             source: listing.source || "Rightmove",
                           }}
                           onViewProperty={() =>
@@ -866,7 +926,6 @@ function App() {
                 </div>
               )}
 
-              {/* Display Featured Properties Section */}
               {featuredProperties.length > 0 &&
                 scrapedListings.length === 0 &&
                 !isFetchingScraper &&
@@ -887,18 +946,15 @@ function App() {
                   </div>
                 )}
 
-              {/* Message if no listings shown and not loading/searching */}
               {scrapedListings.length === 0 &&
                 !isFetchingScraper &&
                 !isSearchingLRDemo && (
                   <div className="no-results-message">
-                    {/* Show initial prompt only if no search has been done */}
                     {!activeSearchPostcode && (
                       <p>
                         Enter a postcode to search for listings and area data.
                       </p>
                     )}
-                    {/* Show specific messages if a search was done but yielded nothing */}
                     {activeSearchPostcode &&
                       !scraperError &&
                       isScrapingComplete && (

@@ -7,7 +7,7 @@ const HeatmapLayer = ({
   data, // Expects array of [lat, lng, intensity]
   radius = 20,
   blur = 15,
-  // Gradient: 0.4 (Blue/Green) -> 0.65 (Lime) -> 0.9 (Yellow) -> 1.0 (Red)
+  // Gradient: 0.4 (Blue/Gre en) -> 0.65 (Lime) -> 0.9 (Yellow) -> 1.0 (Red)
   gradient = { 0.4: "#2cba00", 0.65: "#a3ff00", 0.9: "#ffae00", 1.0: "#ff0000" },
   maxZoom = 18, // Max zoom level for the heatmap rendering
   minOpacity = 0.1, // Minimum opacity when zoomed out

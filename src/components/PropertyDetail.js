@@ -7,27 +7,42 @@ import {
   faRulerCombined,
   faBuilding,
   faHome,
-  // faMoneyBillWave, // Removed as not used
   faChartLine,
-  // faExclamationTriangle, // Removed as not used
   faSchool,
   faTrain,
-  // faChartBar, // Removed as not used
-  // faPercentage, // Removed as not used
-  // faHistory, // Removed as not used
   faArrowLeft,
   faSpinner,
   faExternalLinkAlt,
-  // faHomeUser, // Removed as not used
   faUserGroup,
-  // faBuildingColumns, // Removed as not used
   faCar,
-  // faChartArea, // Removed as not used
   faSterlingSign,
-  // faUsers, // Removed as not used
 } from "@fortawesome/free-solid-svg-icons";
 
 import DemographicCard from "./DemographicCard";
+// import "./PropertyDetail.css"; // Make sure this path is correct
+
+// Optional: Import charting library if using
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+
+// Helper to format currency
+const formatCurrency = (value) => {
+  if (typeof value !== "number" || isNaN(value)) return "N/A";
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+};
 
 // Helper to format date string or return placeholder
 const formatDate = (date) => {
@@ -109,6 +124,13 @@ const PropertyDetail = ({
   property,
   isLoadingLR, // Receive loading state for Land Registry
   isLoadingDemo, // Receive loading state for Demographics
+
+  // *** NEW PROPS for Prediction ***
+  predictionResults,
+  isLoadingPrediction,
+  predictionError,
+  // *** End New Props ***
+
   onBackToListings,
 }) => {
   // --- HOOKS MUST BE CALLED AT THE TOP LEVEL ---
@@ -481,6 +503,60 @@ const PropertyDetail = ({
             </>
           )}
         </div>
+
+        {/* --- PREDICTION SECTION --- */}
+        <div className="detail-section prediction-info">
+          <h3>
+            <FontAwesomeIcon icon={faChartLine} /> Price Prediction Trend (Next
+            5 Years)
+          </h3>
+          {isLoadingPrediction ? (
+            <div className="loading-indicator">
+              <FontAwesomeIcon icon={faSpinner} spin /> Loading predictions...
+            </div>
+          ) : predictionError ? (
+            <p className="error-message">Prediction Error: {predictionError}</p>
+          ) : predictionResults && predictionResults.length > 0 ? (
+            <>
+              <ul>
+                {predictionResults.map((result) => (
+                  <li key={result.year}>
+                    {result.year}: {formatCurrency(result.predicted_price)}
+                  </li>
+                ))}
+              </ul>
+              {/* Optional Chart */}
+              <div style={{ width: "100%", height: 250, marginTop: "15px" }}>
+                <ResponsiveContainer>
+                  <LineChart
+                    data={predictionResults}
+                    margin={{ top: 5, right: 10, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="year" />
+                    <YAxis
+                      tickFormatter={(value) =>
+                        `£${(value / 1000).toFixed(0)}k`
+                      }
+                    />
+                    <Tooltip formatter={(value) => formatCurrency(value)} />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="predicted_price"
+                      name="Predicted"
+                      stroke="#82ca9d"
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </>
+          ) : (
+            <p>No prediction data available.</p>
+          )}
+        </div>
+        {/* --- END PREDICTION SECTION --- */}
       </div>
     </div>
   );

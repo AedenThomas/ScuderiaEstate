@@ -19,7 +19,8 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // Optional: Middleware to parse JSON request bodies (if you send data in POST requests later)
-// app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 
 const NOMIS_DATA_DEFINITIONS = {
   Sex: {
@@ -204,6 +205,155 @@ async function getGeographyCodesForPostcode(postcode) {
     return null;
   }
 }
+
+app.post("/api/predict-price", (req, res) => {
+  const inputDetails = req.body; // e.g., { postcode, propertytype, ..., num_years }
+  console.log("[Predict API] Received details:", inputDetails);
+
+  // --- Basic Input Validation (Keep existing checks) ---
+  const requiredFields = [
+    "postcode",
+    "propertytype",
+    "duration",
+    "numberrooms",
+    "tfarea",
+    "property_age",
+  ];
+  const missingFields = requiredFields.filter(
+    (field) =>
+      !(field in inputDetails) ||
+      inputDetails[field] === null ||
+      inputDetails[field] === ""
+  );
+
+  if (missingFields.length > 0) {
+    console.error("[Predict API] Missing fields:", missingFields);
+    return res.status(400).json({
+      error: `Missing required property details: ${missingFields.join(", ")}`,
+    });
+  }
+
+  // Validate num_years if provided (optional, Python also validates)
+  const num_years = inputDetails.num_years ? parseInt(inputDetails.num_years, 10) : 1;
+  if (isNaN(num_years) || num_years < 1 || num_years > 5) {
+      console.warn("[Predict API] Invalid num_years received, defaulting to 1 for Python script.");
+      inputDetails.num_years = 1; // Ensure a valid number is sent or let Python handle default
+  }
+
+
+  // --- Python Script Execution ---
+  const pythonExecutable =
+    process.env.PYTHON_EXECUTABLE || "python3" || "python";
+  const scriptPath = path.join(__dirname, "predictor", "predict_price.py");
+
+  if (!require("fs").existsSync(scriptPath)) {
+    console.error(`[Predict API] Python script not found at: ${scriptPath}`);
+    return res
+      .status(500)
+      .json({ error: "Prediction script not found on server." });
+  }
+
+  console.log(`[Predict API] Spawning: ${pythonExecutable} ${scriptPath}`);
+  const pythonProcess = spawn(pythonExecutable, [scriptPath]);
+
+  let predictionJson = "";
+  let errorJson = "";
+
+  // Send data (including num_years) to Python script via stdin
+  try {
+    // Make sure to stringify the whole inputDetails object which now includes num_years
+    pythonProcess.stdin.write(JSON.stringify(inputDetails));
+    pythonProcess.stdin.end();
+    console.log("[Predict API] Sent data to Python stdin:", JSON.stringify(inputDetails));
+  } catch (error) {
+    console.error("[Predict API] Error writing to Python stdin:", error);
+    if (pythonProcess && !pythonProcess.killed) {
+      pythonProcess.kill();
+    }
+    return res
+      .status(500)
+      .json({ error: "Failed to send data to predictor process." });
+  }
+
+  // Capture stdout (prediction result - now expects {"predictions": [...]})
+  pythonProcess.stdout.on("data", (data) => {
+    predictionJson += data.toString();
+     console.log(`[Predict Python STDOUT]: ${data.toString().trim()}`);
+  });
+
+  // Capture stderr (errors from Python)
+  pythonProcess.stderr.on("data", (data) => {
+    errorJson += data.toString();
+    console.error(`[Predict Python STDERR]: ${data.toString().trim()}`);
+  });
+
+  // Handle Python script exit
+  pythonProcess.on("close", (code) => {
+    console.log(`[Predict API] Python script exited with code ${code}`);
+
+    if (code === 0 && predictionJson) {
+      try {
+        const result = JSON.parse(predictionJson);
+        // **** CHANGE: Expect 'predictions' array ****
+        if (result && Array.isArray(result.predictions)) {
+           console.log("[Predict API] Sending prediction list:", result);
+           // Success: Send the prediction results back
+           res.status(200).json(result); // Send the whole {"predictions": [...]} object
+        } else {
+          console.error(
+            "[Predict API] Received invalid prediction format (expected {predictions: [...]}:",
+            predictionJson
+          );
+          res.status(500).json({
+            error: "Received invalid prediction format from predictor.",
+            rawOutput: predictionJson,
+          });
+        }
+      } catch (parseError) {
+        console.error(
+          "[Predict API] Failed to parse prediction JSON:",
+          parseError,
+          "Data:",
+          predictionJson
+        );
+        res.status(500).json({
+          error: "Failed to parse prediction result.",
+          rawOutput: predictionJson,
+        });
+      }
+    } else {
+      // Failure: Parse the error from stderr if possible
+      let errorDetail = `Prediction script failed (code ${code}).`;
+      let pythonError = "Unknown error";
+      if (errorJson) {
+        try {
+          const errResult = JSON.parse(errorJson);
+          pythonError = errResult.error || JSON.stringify(errResult); // Use parsed error or raw string/JSON
+        } catch (e) {
+          pythonError = errorJson; // Use raw stderr if not JSON
+        }
+        errorDetail = `Prediction script failed: ${pythonError}`;
+      }
+       console.error(`[Predict API] Error response being sent: ${errorDetail}`);
+       // Send the error JSON from Python if available, otherwise the generic message
+       let responseError = { error: errorDetail };
+       try {
+            if(errorJson) responseError = JSON.parse(errorJson); // Send Python's structured error
+       } catch(e){ /* Ignore parse error, use generic */ }
+       res.status(500).json(responseError);
+    }
+  });
+
+  // Handle errors spawning the process itself
+  pythonProcess.on("error", (error) => {
+    console.error(
+      `[Predict API] Failed to start Python process: ${error.message}`
+    );
+    res
+      .status(500)
+      .json({ error: `Failed to start predictor process: ${error.message}` });
+  });
+});
 
 // --- Land Registry API Endpoint (Existing) ---
 app.get("/api/land-registry", async (req, res) => {
