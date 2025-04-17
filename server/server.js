@@ -7,6 +7,8 @@ const cors = require("cors");
 const app = express();
 const PORT = process.env.REACT_APP_PROXY_PORT || 3001; // Use port 3001 unless specified elsewere
 const { URLSearchParams } = require("url"); // Import URLSearchParams
+const path = require("path"); // <--- ADD THIS LINE
+const { spawn } = require("child_process"); // Use spawn for streaming
 
 // Configure CORS
 // Allow requests specifically from your React app's origin
@@ -15,6 +17,7 @@ const corsOptions = {
   optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
 };
 app.use(cors(corsOptions));
+app.use(express.json());
 
 // Optional: Middleware to parse JSON request bodies (if you send data in POST requests later)
 // app.use(express.json());
@@ -249,20 +252,15 @@ app.get("/api/land-registry", async (req, res) => {
         "[Proxy LR] Land Registry Error Data:",
         error.response.data
       );
-      res
-        .status(error.response.status)
-        .json({
-          error: `Land Registry API error: ${error.response.status}`,
-          details: error.response.data,
-        });
+      res.status(error.response.status).json({
+        error: `Land Registry API error: ${error.response.status}`,
+        details: error.response.data,
+      });
     } else if (error.request) {
       console.error("[Proxy LR] No response received:", error.request);
-      res
-        .status(504)
-        .json({
-          error:
-            "No response received from Land Registry API (Gateway Timeout).",
-        });
+      res.status(504).json({
+        error: "No response received from Land Registry API (Gateway Timeout).",
+      });
     } else {
       console.error("[Proxy LR] Error setting up request:", error.message);
       res
@@ -286,11 +284,9 @@ app.get("/api/demographics", async (req, res) => {
   // 1. Get Geography Codes (LSOA, LAD)
   const geoCodes = await getGeographyCodesForPostcode(postcode);
   if (!geoCodes) {
-    return res
-      .status(404)
-      .json({
-        error: `Could not find geographic codes (LSOA/LAD) for postcode ${postcode}.`,
-      });
+    return res.status(404).json({
+      error: `Could not find geographic codes (LSOA/LAD) for postcode ${postcode}.`,
+    });
   }
 
   const geographyParam = `${geoCodes.lsoa_gss},${geoCodes.lad_gss}`;
@@ -517,6 +513,220 @@ app.get("/api/land-registry", async (req, res) => {
         error: "Internal server error while contacting Land Registry API.",
       });
     }
+  }
+});
+
+app.get("/api/scrape-listings", (req, res) => {
+  const postcode = req.query.postcode;
+  if (!postcode) {
+    return res
+      .status(400)
+      .json({ error: "Postcode query parameter is required" });
+  }
+  console.log(`[Proxy Scrape SSE] Received request for postcode: ${postcode}`);
+
+  // --- USE path.join for Robust Path ---
+  const scriptDir = __dirname; // Directory where server.js lives
+  const scraperScriptPath = path.join(scriptDir, "scrapers", "scrape.py");
+  // const predictorScriptPath = path.join(scriptDir, 'predictor', 'predict_price.py'); // Example for predictor
+
+  // Check if script exists (optional but helpful for debugging)
+  const fs = require("fs");
+  if (!fs.existsSync(scraperScriptPath)) {
+    console.error(
+      `[Proxy Scrape SSE] Scraper script not found at: ${scraperScriptPath}`
+    );
+    return res
+      .status(500)
+      .json({ error: "Scraper script configuration error." });
+  }
+
+  // --- Set up SSE headers ---
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders(); // Send headers immediately
+
+  console.log(
+    `[Proxy Scrape SSE] Executing: python3 ${scraperScriptPath} --postcode ${postcode}`
+  );
+  // Use 'python3' or 'python' depending on your system setup
+  const pythonProcess = spawn("python3", [
+    scraperScriptPath,
+    "--postcode",
+    postcode,
+  ]);
+
+  // Handle stdout (send as SSE 'message' events)
+  pythonProcess.stdout.on("data", (data) => {
+    const lines = data.toString().split("\n");
+    lines.forEach((line) => {
+      if (line.trim()) {
+        // console.log(`[Scraper STDOUT Line]: ${line.substring(0, 100)}...`); // Log truncated line
+        res.write(`data: ${line}\n\n`); // Standard SSE format
+      }
+    });
+  });
+
+  // Handle stderr (log errors, optionally send as SSE 'error' event)
+  pythonProcess.stderr.on("data", (data) => {
+    console.error(`[Scraper STDERR]: ${data.toString().trim()}`);
+    // Optionally send critical errors back to client via SSE:
+    // const errorMsg = data.toString().trim();
+    // if (errorMsg.toLowerCase().includes('error') || errorMsg.toLowerCase().includes('exception')) {
+    //    res.write(`event: error\ndata: ${JSON.stringify({ error: `Scraper stderr: ${errorMsg}` })}\n\n`);
+    // }
+  });
+
+  // Handle script exit
+  pythonProcess.on("close", (code) => {
+    console.log(`[Proxy Scrape SSE] Python script exited with code ${code}`);
+    if (code !== 0) {
+      // Send an error event if script exited abnormally
+      res.write(
+        `event: error\ndata: ${JSON.stringify({
+          error: `Scraper process exited abnormally (code ${code}). Check server logs.`,
+        })}\n\n`
+      );
+    }
+    // Ensure a final "complete" or similar message is sent if needed,
+    // handled by scrape.py itself sending {"status": "complete"} usually
+    res.end(); // Close the SSE connection from the server side
+  });
+
+  // Handle Python spawn errors (e.g., command not found)
+  pythonProcess.on("error", (err) => {
+    console.error("[Proxy Scrape SSE] Failed to start Python process:", err);
+    res.write(
+      `event: error\ndata: ${JSON.stringify({
+        error: `Server failed to start scraper: ${err.message}`,
+      })}\n\n`
+    );
+    res.status(500).end(); // End the response with an error status
+  });
+
+  // Handle client disconnect
+  req.on("close", () => {
+    console.log("[Proxy Scrape SSE] Client disconnected.");
+    if (pythonProcess && !pythonProcess.killed) {
+      console.log("[Proxy Scrape SSE] Killing Python process...");
+      pythonProcess.kill("SIGTERM"); // Send termination signal
+      // Optional: Force kill after timeout
+      setTimeout(() => {
+        if (pythonProcess && !pythonProcess.killed) {
+          console.warn("[Proxy Scrape SSE] Forcing kill on Python process.");
+          pythonProcess.kill("SIGKILL");
+        }
+      }, 2000); // 2 second timeout
+    }
+    res.end();
+  });
+});
+
+app.post("/api/predict-price", (req, res) => {
+  console.log("[Predict API] Received request:", req.body);
+  const propertyDetails = req.body;
+  console.log("[Predict API] Received details:", propertyDetails);
+
+  const scriptDir = __dirname;
+  const predictorScriptPath = path.join(
+    scriptDir,
+    "predictor",
+    "predict_price.py"
+  );
+
+  // Check script existence (optional)
+  const fs = require("fs");
+  if (!fs.existsSync(predictorScriptPath)) {
+    console.error(
+      `[Predict API] Predictor script not found at: ${predictorScriptPath}`
+    );
+    return res
+      .status(500)
+      .json({ error: "Predictor script configuration error." });
+  }
+
+  const pythonProcess = spawn("python3", [predictorScriptPath]);
+
+  let scriptOutput = "";
+  let scriptErrorOutput = ""; // Capture stderr separately
+
+  pythonProcess.stdout.on("data", (data) => {
+    scriptOutput += data.toString(); // Accumulate output
+  });
+
+  pythonProcess.stderr.on("data", (data) => {
+    const errData = data.toString();
+    console.error("[Predict Python STDERR]:", errData); // Log Python errors
+    scriptErrorOutput += errData; // Accumulate stderr
+  });
+
+  pythonProcess.on("close", (code) => {
+    console.log(`[Predict API] Python script exited with code ${code}`);
+
+    // --- ADD JSON PARSE CHECK ---
+    try {
+      const jsonData = JSON.parse(scriptOutput);
+      // Check if the parsed data itself indicates an error from Python
+      if (jsonData && jsonData.error) {
+        console.error(
+          "[Predict API] Python script reported error:",
+          jsonData.error
+        );
+        // Send the Python error back to the client
+        res.status(400).json(jsonData); // Use 400 or 500 depending on error type
+      } else if (jsonData && jsonData.predictions) {
+        // Success case
+        console.log("[Predict API] Sending prediction list:", jsonData);
+        res.json(jsonData);
+      } else {
+        // Valid JSON but unexpected format
+        console.error(
+          "[Predict API] Python script returned unexpected JSON format:",
+          scriptOutput
+        );
+        res.status(500).json({
+          error: "Prediction script returned unexpected data format.",
+          details: scriptOutput,
+        });
+      }
+    } catch (parseError) {
+      // JSON parsing failed - Python script likely printed an error string/traceback
+      console.error(
+        "[Predict API] Failed to parse Python output as JSON:",
+        parseError
+      );
+      console.error("[Predict API] Raw Python output:", scriptOutput);
+      console.error("[Predict API] Python stderr output:", scriptErrorOutput); // Log stderr too
+      res.status(500).json({
+        error: "Prediction script failed or returned invalid data.",
+        details: scriptOutput || "No output received.", // Send back raw output for debugging
+        stderr: scriptErrorOutput || "No stderr received.",
+      });
+    }
+    // -----------------------------
+  });
+
+  pythonProcess.on("error", (err) => {
+    console.error("[Predict API] Failed to start Python process:", err);
+    res
+      .status(500)
+      .json({ error: `Server failed to start predictor: ${err.message}` });
+  });
+
+  // Send data to Python's stdin
+  try {
+    const inputJson = JSON.stringify(propertyDetails);
+    console.log("[Predict API] Sent data to Python stdin:", inputJson);
+    pythonProcess.stdin.write(inputJson);
+    pythonProcess.stdin.end();
+  } catch (stringifyError) {
+    console.error(
+      "[Predict API] Failed to stringify input data:",
+      stringifyError
+    );
+    res.status(400).json({ error: "Invalid input data format." });
+    pythonProcess.kill(); // Kill process if input fails
   }
 });
 

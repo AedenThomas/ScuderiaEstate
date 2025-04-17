@@ -1,8 +1,7 @@
 // src/components/PropertyDetail.js
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  // Existing icons...
   faLocationDot,
   faBed,
   faBath,
@@ -20,14 +19,15 @@ import {
   faMagnifyingGlassChart,
   faUsersViewfinder,
   faHistory,
-  faBalanceScale, // ✅ NEW Icon for Crime
-  faPlusSquare, // ✅ NEW Icon for Expand
-  faMinusSquare, // ✅ NEW Icon for Collapse
+  faBalanceScale,
+  faPlusSquare,
+  faMinusSquare,
 } from "@fortawesome/free-solid-svg-icons";
 
+// Import child components
 import DemographicCard from "./DemographicCard";
-import CrimeCard from "./CrimeCard"; // ✅ NEW IMPORT
-import ImageSlideshow from "./ImageSlideshow";
+import CrimeCard from "./CrimeCard";
+import ImageSlideshow from "./ImageSlideshow"; // Ensure this path is correct
 import {
   LineChart,
   Line,
@@ -39,72 +39,161 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-// --- Helper Functions (Keep existing formatters: formatPrice, formatCurrency, formatDate, formatPercentage) ---
+// --- Helper Functions ---
 const formatPrice = (value) => {
-  /* ... keep existing ... */
+  if (
+    value === null ||
+    value === undefined ||
+    value === "N/A" ||
+    value === "Error"
+  )
+    return value;
+  const num = Number(String(value).replace(/[^0-9.-]+/g, ""));
+  if (isNaN(num)) return "N/A";
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(num);
 };
 const formatCurrency = (value) => {
-  /* ... keep existing ... */
+  if (value === null || value === undefined || isNaN(Number(value))) {
+    return "N/A";
+  }
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(Number(value));
 };
 const formatDate = (dateStringOrDate) => {
-  /* ... keep existing ... */
+  if (!dateStringOrDate) return "N/A";
+  try {
+    const date = new Date(dateStringOrDate);
+    if (isNaN(date.getTime())) return "Invalid Date";
+    return date.toLocaleDateString("en-GB", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  } catch (e) {
+    return "Invalid Date";
+  }
 };
 const formatPercentage = (value) => {
-  /* ... keep existing ... */
+  if (
+    typeof value === "string" &&
+    (value.includes("%") ||
+      value === "N/A" ||
+      value === "Error" ||
+      value === "Insufficient History")
+  )
+    return value; // Pass through formatted or placeholders
+  if (value === null || value === undefined) return "N/A";
+  const num = parseFloat(value);
+  if (isNaN(num)) return "N/A";
+  return `${num.toFixed(1)}%`;
+};
+// Custom Tooltip for Prediction Chart
+const PredictionTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="custom-tooltip prediction-tooltip">
+        <p className="label">{`Year: ${label}`}</p>
+        <p className="intro">{`Predicted: ${formatCurrency(
+          payload[0].value
+        )}`}</p>
+      </div>
+    );
+  }
+  return null;
 };
 
+// ========== Main Component ==========
 const PropertyDetail = ({
-  property,
-  // Remove direct demo props, get from property
-  // isLoadingLR, // Get from property if needed, but PropertyDetail doesn't use it directly now
-  // isLoadingDemo, // Get from property if needed
-  // Pass other necessary props
-  predictionResults, // Keep if passed separately, otherwise get from property if included
-  isLoadingPrediction,
-  predictionError,
+  property, // Single prop containing all data
   onBackToListings,
 }) => {
-  // State for active tab
-  const [activeTab, setActiveTab] = useState("overview"); // Default to overview
-
-  // State for managing collapsed demographic AND crime cards
+  // ========== HOOKS (Called First & Unconditionally) ==========
+  const [activeTab, setActiveTab] = useState("overview");
   const [collapsedCards, setCollapsedCards] = useState({});
 
-  // Memoize demographics data
+  const handleToggleCollapse = useCallback((topicName) => {
+    setCollapsedCards((prev) => ({ ...prev, [topicName]: !prev[topicName] }));
+  }, []);
+  const handleExpandAll = useCallback(() => {
+    setCollapsedCards((prev) => {
+      const n = { ...prev };
+      Object.keys(n).forEach((k) => (n[k] = false));
+      return n;
+    });
+  }, []);
+  const handleCollapseAll = useCallback(() => {
+    setCollapsedCards((prev) => {
+      const n = { ...prev };
+      Object.keys(n).forEach((k) => (n[k] = true));
+      return n;
+    });
+  }, []);
+
+  // Process props using hooks
   const demographics = useMemo(
     () => property?.demographicData?.demographics,
     [property?.demographicData]
   );
-  // Check if crime data exists
   const crimeStats = useMemo(
     () => property?.crimeStats,
     [property?.crimeStats]
-  ); // ✅ Memoize crime data
+  );
+  const { processedPredictionData, predictionDomain } = useMemo(() => {
+    const predictionResults = property?.predictionResults;
+    if (!predictionResults || predictionResults.length === 0)
+      return {
+        processedPredictionData: [],
+        predictionDomain: ["auto", "auto"],
+      }; // Use correct keys
+    const prices = predictionResults.map((p) => p.predicted_price);
+    if (prices.some((p) => p == null || isNaN(p)))
+      return {
+        processedPredictionData: predictionResults,
+        predictionDomain: ["auto", "auto"],
+      };
+    const minP = Math.min(...prices);
+    const maxP = Math.max(...prices);
+    const buffer = (maxP - minP) * 0.05 || 5000;
+    return {
+      processedPredictionData: predictionResults,
+      predictionDomain: [
+        Math.max(0, Math.floor((minP - buffer) / 1000) * 1000),
+        Math.ceil((maxP + buffer) / 1000) * 1000,
+      ],
+    };
+  }, [property?.predictionResults]);
 
-  // Update collapsed topics when demographics or crime data changes
+  // Effect to initialize collapse state
   useEffect(() => {
     const initialCollapseState = {};
-    // Initialize from demographics
     if (demographics && typeof demographics === "object") {
       Object.keys(demographics).forEach((topic) => {
-        initialCollapseState[topic] = true; // Default to collapsed
+        initialCollapseState[topic] = true;
       });
     }
-    // ✅ Initialize for Crime if data exists
     if (crimeStats) {
-      initialCollapseState["Crime"] = true; // Use "Crime" as the key
+      initialCollapseState["Crime"] = true;
     }
-    setCollapsedCards(initialCollapseState);
-  }, [demographics, crimeStats]); // ✅ Depend on crimeStats too
+    if (
+      JSON.stringify(initialCollapseState) !== JSON.stringify(collapsedCards)
+    ) {
+      setCollapsedCards(initialCollapseState);
+    }
+  }, [demographics, crimeStats, collapsedCards]); // Add collapsedCards to dependency to prevent potential stale state issues
 
-  // Memoize prediction data processing (Keep existing)
-  const { processedPredictionData, predictionDomain } = useMemo(() => {
-    /* ... keep existing ... */
-  }, [predictionResults]);
+  // ========== Early Return Check ==========
+  if (!property) return null;
 
-  if (!property) return null; // Early return if no property
-
-  // --- Destructure with defaults ---
+  // ========== Destructuring & Variables ==========
   const {
     title = "Property Details",
     location = "N/A",
@@ -114,54 +203,58 @@ const PropertyDetail = ({
     description = "",
     transactionHistory = null,
     priceGrowth = null,
-    demographicData = null, // Keep demo data here
+    demographicData = null,
     source = "Unknown",
     detail_url = null,
     image_urls = [],
-    image = "...", // Keep image data
-    isAreaSummary = false, // ✅ Check if it's an area summary
-    // crimeStats is accessed directly via property.crimeStats
+    image = "...",
+    isAreaSummary = false,
+    isLoadingLR = false,
+    isLoadingDemo = false,
+    isLoadingPrediction = false,
+    predictionError = null,
   } = property;
 
-  // Geo codes needed for DemographicCard
   const geoCodes = property?.demographicData?.geoCodes;
-  // Fetch errors for demographics
   const demoFetchErrors = property?.demographicData?.fetchErrors || [];
 
-  // --- Event Handlers for Collapse/Expand ---
-  const handleToggleCollapse = useCallback((topicName) => {
-    setCollapsedCards((prev) => ({ ...prev, [topicName]: !prev[topicName] }));
-  }, []); // No dependencies needed if only using prev state
-
-  const handleExpandAll = useCallback(() => {
-    setCollapsedCards((prev) => {
-      const newState = { ...prev };
-      Object.keys(newState).forEach((topic) => (newState[topic] = false));
-      return newState;
-    });
-  }, []);
-
-  const handleCollapseAll = useCallback(() => {
-    setCollapsedCards((prev) => {
-      const newState = { ...prev };
-      Object.keys(newState).forEach((topic) => (newState[topic] = true));
-      return newState;
-    });
-  }, []);
-
-  // Custom Tooltip for Prediction Chart (Keep existing)
-  const PredictionTooltip = ({ active, payload, label }) => {
-    /* ... keep existing ... */
-  };
-
-  // --- Render Logic ---
+  // ========== Render Logic ==========
   return (
     <div className="property-detail">
-      {/* --- Header (Keep existing) --- */}
+      {/* --- Header --- */}
       <div className="detail-header">
-        {/* ... back button, title/location, external link ... */}
+        <button
+          onClick={onBackToListings}
+          className="back-button"
+          aria-label="Back to listings"
+        >
+          <FontAwesomeIcon icon={faArrowLeft} /> Back
+        </button>
+        <div className="header-title-location">
+          <h2>{title}</h2>
+          <div className="detail-location">
+            <FontAwesomeIcon icon={faLocationDot} />
+            <span>
+              {location} {postcode && `(${postcode})`}
+            </span>
+            {source && <span className="data-source-tag">{source}</span>}
+          </div>
+        </div>
+        {detail_url && !isAreaSummary && (
+          <a
+            href={detail_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="external-link button-like"
+            title="View original listing"
+          >
+            {" "}
+            View Source <FontAwesomeIcon icon={faExternalLinkAlt} size="xs" />
+          </a>
+        )}
       </div>
-      {/* --- Tabs (Conditionally show Demographics) --- */}
+
+      {/* --- Tabs --- */}
       <div className="detail-tabs">
         <button
           className={`tab-button ${activeTab === "overview" ? "active" : ""}`}
@@ -169,14 +262,18 @@ const PropertyDetail = ({
         >
           <FontAwesomeIcon icon={faHomeUser} /> Overview
         </button>
-        <button
-          className={`tab-button ${activeTab === "investment" ? "active" : ""}`}
-          onClick={() => setActiveTab("investment")}
-        >
-          <FontAwesomeIcon icon={faMoneyBillTrendUp} /> Investment & Forecast
-        </button>
-        {/* Only show Demographics for Area Summaries for now, or if specifically fetched for listing */}
-        {(isAreaSummary || demographicData || crimeStats) && ( // Show if it's summary OR has specific demo/crime data
+        {(!isAreaSummary ||
+          (isAreaSummary && priceGrowth && priceGrowth.growth !== "N/A")) && (
+          <button
+            className={`tab-button ${
+              activeTab === "investment" ? "active" : ""
+            }`}
+            onClick={() => setActiveTab("investment")}
+          >
+            <FontAwesomeIcon icon={faMoneyBillTrendUp} /> Investment & Forecast
+          </button>
+        )}
+        {(isAreaSummary || demographicData || crimeStats) && (
           <button
             className={`tab-button ${
               activeTab === "demographics" ? "active" : ""
@@ -187,20 +284,22 @@ const PropertyDetail = ({
           </button>
         )}
       </div>
+
       {/* --- Tab Content --- */}
       <div className="detail-content">
-        {/* --- Overview Tab (Keep existing logic, using ImageSlideshow) --- */}
+        {/* --- Overview Tab --- */}
         {activeTab === "overview" && (
           <div className="property-tab-content overview-tab">
             <div className="overview-layout">
               <div className="overview-left">
                 <div className="detail-image-container">
+                  {" "}
                   <ImageSlideshow
                     imageUrls={image_urls || []}
                     altText={title}
-                  />
+                  />{" "}
                 </div>
-                {description && (
+                {description && !isAreaSummary && (
                   <div className="detail-section description-section">
                     <h3>
                       <FontAwesomeIcon icon={faInfoCircle} /> Description
@@ -212,21 +311,95 @@ const PropertyDetail = ({
               <div className="overview-right">
                 <div className="detail-section property-summary">
                   <h3>
-                    <FontAwesomeIcon icon={faBuilding} /> Property Summary
+                    <FontAwesomeIcon icon={faBuilding} />{" "}
+                    {isAreaSummary ? "Area Summary" : "Property Summary"}
                   </h3>
                   <div className="summary-grid">
-                    {/* ... render summary items based on 'details' and 'price' ... */}
+                    {!isAreaSummary && (
+                      <div className="summary-item price-prominent">
+                        <FontAwesomeIcon
+                          icon={faSterlingSign}
+                          className="summary-icon"
+                        />
+                        <span className="summary-label">Asking Price</span>
+                        <span className="summary-value">
+                          {formatPrice(price.asking)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="summary-item">
+                      <FontAwesomeIcon
+                        icon={faSterlingSign}
+                        className="summary-icon"
+                      />
+                      <span className="summary-label">
+                        {isAreaSummary
+                          ? "Avg. Sold Price (Area)"
+                          : "Est. Value (Area Avg)"}
+                      </span>
+                      <span className="summary-value">
+                        {formatPrice(price.estimated)}
+                      </span>
+                    </div>
+                    {!isAreaSummary && (
+                      <div className="summary-item">
+                        <FontAwesomeIcon
+                          icon={faBed}
+                          className="summary-icon"
+                        />
+                        <span className="summary-label">Bedrooms</span>
+                        <span className="summary-value">
+                          {details.bedrooms || "-"}
+                        </span>
+                      </div>
+                    )}
+                    {!isAreaSummary && (
+                      <div className="summary-item">
+                        <FontAwesomeIcon
+                          icon={faBath}
+                          className="summary-icon"
+                        />
+                        <span className="summary-label">Bathrooms</span>
+                        <span className="summary-value">
+                          {details.bathrooms && details.bathrooms !== "N/A"
+                            ? details.bathrooms
+                            : "-"}
+                        </span>
+                      </div>
+                    )}
+                    {!isAreaSummary && (
+                      <div className="summary-item">
+                        <FontAwesomeIcon
+                          icon={faRulerCombined}
+                          className="summary-icon"
+                        />
+                        <span className="summary-label">Floor Area</span>
+                        <span className="summary-value">
+                          {details.sqft && details.sqft !== "N/A"
+                            ? details.sqft
+                            : "-"}
+                        </span>
+                      </div>
+                    )}
+                    {!isAreaSummary && (
+                      <div className="summary-item">
+                        <FontAwesomeIcon
+                          icon={faBuilding}
+                          className="summary-icon"
+                        />
+                        <span className="summary-label">Property Type</span>
+                        <span className="summary-value">
+                          {details.propertyType || "N/A"}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
-                {/* Add area summary note if applicable */}
                 {isAreaSummary && (
                   <div className="detail-section area-summary-note">
                     <p>
-                      This is an overview for the postcode area{" "}
-                      <strong>{postcode}</strong>. Specific property details
-                      (bedrooms, etc.) are not applicable. Area insights like
-                      Demographics, Crime, and historical trends are available
-                      in other tabs.
+                      Area overview for <strong>{postcode}</strong>. See other
+                      tabs for insights.
                     </p>
                   </div>
                 )}
@@ -234,28 +407,178 @@ const PropertyDetail = ({
             </div>
           </div>
         )}
-        {/* --- Investment & Forecast Tab (Keep existing logic) --- */}
-        {activeTab === "investment" && (
-          <div className="property-tab-content investment-tab">
-            {/* Historical Investment Data (Area) Section */}
-            <div className="detail-section investment-history">
-              <h3>
-                <FontAwesomeIcon icon={faHistory} /> Historical Investment Data
-                (Area)
-              </h3>{" "}
-              {/* ... render metrics and table based on transactionHistory and priceGrowth ... */}
+
+        {/* --- Investment & Forecast Tab --- */}
+        {activeTab === "investment" &&
+          (!isAreaSummary ||
+            (isAreaSummary && priceGrowth && priceGrowth.growth !== "N/A")) && (
+            <div className="property-tab-content investment-tab">
+              <div className="detail-section investment-history">
+                <h3>
+                  <FontAwesomeIcon icon={faHistory} /> Historical Investment
+                  Data (Area)
+                </h3>
+                {isLoadingLR ? (
+                  <div className="loading-indicator">
+                    <FontAwesomeIcon icon={faSpinner} spin /> Loading Area
+                    History...
+                  </div>
+                ) : (
+                  <>
+                    {priceGrowth?.error && (
+                      <p className="error-message">
+                        History Error: {priceGrowth.error}
+                      </p>
+                    )}
+                    {!priceGrowth?.error &&
+                      transactionHistory?.length === 0 && (
+                        <p>
+                          No recent transaction history found for this area.
+                        </p>
+                      )}
+                    {!priceGrowth?.error &&
+                      transactionHistory === null &&
+                      !isLoadingLR && (
+                        <p className="error-message">
+                          Could not load transaction history for this area.
+                        </p>
+                      )}
+                    {transactionHistory?.length > 0 && !priceGrowth?.error && (
+                      <div className="investment-metrics">
+                        <div className="metric-box">
+                          <span className="metric-label">
+                            Est. Value (Area Avg)
+                          </span>
+                          <span className="metric-value">
+                            {formatPrice(price.estimated)}
+                          </span>
+                        </div>
+                        <div className="metric-box">
+                          <span className="metric-label">
+                            Price Growth Trend
+                          </span>
+                          <span className="metric-value">
+                            {priceGrowth?.growth ?? "N/A"}
+                          </span>
+                        </div>
+                        <div className="metric-box">
+                          <span className="metric-label">
+                            Annualized Return (Est.)
+                          </span>
+                          <span className="metric-value">
+                            {formatPercentage(priceGrowth?.annualizedReturn)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    {transactionHistory?.length > 0 && !priceGrowth?.error && (
+                      <div className="transaction-history">
+                        <h4>Recent Transactions (Area)</h4>
+                        <div className="table-container">
+                          <table className="transaction-table">
+                            <thead>
+                              <tr>
+                                <th>Date</th>
+                                <th>Price</th>
+                                <th>Type</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {transactionHistory.slice(0, 10).map((t) => (
+                                <tr key={t.id}>
+                                  <td>{formatDate(t.date)}</td>
+                                  <td className="price-cell">
+                                    {formatPrice(t.price)}
+                                  </td>
+                                  <td>
+                                    {t.propertyType}{" "}
+                                    {t.isNewBuild ? "(New)" : ""}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        {transactionHistory.length > 10 && (
+                          <p className="more-transactions">
+                            Showing 10 of {transactionHistory.length}...
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+              {/* Prediction Trend (Show only for specific listings) */}
+              {!isAreaSummary && (
+                <div className="detail-section prediction-info">
+                  <h3>
+                    <FontAwesomeIcon icon={faMagnifyingGlassChart} /> Price
+                    Prediction Trend
+                  </h3>
+                  {isLoadingPrediction ? (
+                    <div className="loading-indicator">
+                      <FontAwesomeIcon icon={faSpinner} spin /> Loading
+                      Predictions...
+                    </div>
+                  ) : predictionError ? (
+                    <p className="error-message">
+                      Prediction Error: {predictionError}
+                    </p>
+                  ) : // Use processedPredictionData from useMemo hook
+                  processedPredictionData?.length > 0 ? (
+                    <div className="prediction-chart-container">
+                      <ResponsiveContainer width="100%" height={300}>
+                        <LineChart
+                          data={processedPredictionData}
+                          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                        >
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke="#e0e0e0"
+                          />
+                          <XAxis dataKey="year" tick={{ fontSize: 12 }} />
+                          <YAxis
+                            tickFormatter={(v) => `£${(v / 1000).toFixed(0)}k`}
+                            domain={predictionDomain}
+                            allowDataOverflow={true}
+                            tick={{ fontSize: 12 }}
+                            width={70}
+                          />
+                          <Tooltip
+                            content={<PredictionTooltip />}
+                            cursor={{ stroke: "#8884d8", strokeWidth: 1 }}
+                          />
+                          <Legend wrapperStyle={{ fontSize: "13px" }} />
+                          <Line
+                            type="monotone"
+                            dataKey="predicted_price"
+                            name="Predicted Price"
+                            stroke="#82ca9d"
+                            strokeWidth={2}
+                            activeDot={{ r: 6 }}
+                            dot={{ r: 3 }}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                      <ul className="prediction-list">
+                        {processedPredictionData.map((r) => (
+                          <li key={r.year}>
+                            <strong>{r.year}:</strong>{" "}
+                            {formatCurrency(r.predicted_price)}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <p>No prediction data available for this property.</p>
+                  )}
+                </div>
+              )}
             </div>
-            {/* Prediction Trend Section */}
-            <div className="detail-section prediction-info">
-              <h3>
-                <FontAwesomeIcon icon={faMagnifyingGlassChart} /> Price
-                Prediction Trend
-              </h3>{" "}
-              {/* ... render chart and list based on prediction data ... */}
-            </div>
-          </div>
-        )}
-        {/* --- Demographics Tab (Integrate Crime Card) --- */}
+          )}
+
+        {/* --- Demographics Tab --- */}
         {activeTab === "demographics" &&
           (isAreaSummary || demographicData || crimeStats) && (
             <div className="property-tab-content demographics-tab">
@@ -265,9 +588,8 @@ const PropertyDetail = ({
                     <FontAwesomeIcon icon={faUsersViewfinder} /> Area Insights (
                     {postcode})
                   </h3>
-                  {/* Expand/Collapse Buttons */}
                   {(demographics || crimeStats) &&
-                    Object.keys(collapsedCards).length > 0 && ( // Show if there's anything to collapse/expand
+                    Object.keys(collapsedCards).length > 0 && (
                       <div className="expand-collapse-controls">
                         <button onClick={handleExpandAll} title="Expand All">
                           <FontAwesomeIcon icon={faPlusSquare} /> Expand All
@@ -281,100 +603,80 @@ const PropertyDetail = ({
                       </div>
                     )}
                 </div>
-
-                {/* Loading/Error states specifically for Demo - Crime is handled inside its card */}
-                {property.isLoadingDemo &&
-                  !demographics && ( // Show loading only if demo is loading AND not yet available
-                    <div className="loading-indicator">
-                      <FontAwesomeIcon icon={faSpinner} spin /> Loading
-                      Demographics...
-                    </div>
-                  )}
-                {demographicData?.error &&
-                  !demographics && ( // Show error only if demo errored AND no data available
-                    <p className="error-message">
-                      Error loading demographics: {demographicData.error}
-                    </p>
-                  )}
-                {!demographicData?.error &&
-                  demoFetchErrors &&
-                  demoFetchErrors.length > 0 && ( // Partial fetch warning
-                    <div className="warning-message">
-                      <p>Note: Some demographic topics failed to load:</p>
-                      <ul>
-                        {demoFetchErrors.map((err, i) => (
-                          <li key={i}>
-                            <small>{err}</small>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                {/* Cards Container */}
+                {isLoadingDemo && !demographics && !crimeStats && (
+                  <div className="loading-indicator">
+                    <FontAwesomeIcon icon={faSpinner} spin /> Loading Area
+                    Insights...
+                  </div>
+                )}
+                {demographicData?.error && !demographics && (
+                  <p className="error-message">
+                    Error loading demographics: {demographicData.error}
+                  </p>
+                )}
+                {!demographicData?.error && demoFetchErrors?.length > 0 && (
+                  <div className="warning-message">
+                    <p>Note: Some demographic topics failed to load:</p>
+                    <ul>
+                      {demoFetchErrors.map((err, i) => (
+                        <li key={i}>
+                          <small>{err}</small>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 <div className="demographics-cards-container">
-                  {/* ✅ Render Crime Card FIRST if stats exist */}
                   {crimeStats && (
                     <CrimeCard
                       stats={crimeStats}
-                      isCollapsed={collapsedCards["Crime"] ?? true} // Use "Crime" key
+                      isCollapsed={collapsedCards["Crime"] ?? true}
                       onToggleCollapse={() => handleToggleCollapse("Crime")}
                     />
                   )}
-                  {!crimeStats &&
-                    !property.isLoadingDemo && ( // Show if crime wasn't fetched/available
-                      <div className="demographic-card no-data-card">
-                        <div className="card-header">
-                          <FontAwesomeIcon
-                            icon={faBalanceScale}
-                            className="topic-icon"
-                          />
-                          <h3>Crime</h3>
-                        </div>
-                        <div className="card-content">
-                          <p>
-                            Crime data not available for this location/search.
-                          </p>
-                        </div>
+                  {!crimeStats && !isLoadingDemo && !demographicData?.error && (
+                    <div className="demographic-card no-data-card">
+                      <div className="card-header">
+                        <FontAwesomeIcon
+                          icon={faBalanceScale}
+                          className="topic-icon"
+                        />
+                        <h3>Crime</h3>
                       </div>
-                    )}
-
-                  {/* Render Demographic Cards */}
+                      <div className="card-content">
+                        <p>Crime data not available.</p>
+                      </div>
+                    </div>
+                  )}
                   {demographics &&
                   geoCodes &&
                   Object.keys(demographics).length > 0 ? (
                     Object.entries(demographics)
-                      .sort((a, b) => a[0].localeCompare(b[0])) // Sort topics
+                      .sort((a, b) => a[0].localeCompare(b[0]))
                       .map(([topicName, data]) => (
                         <DemographicCard
                           key={topicName}
                           topicName={topicName}
                           nomisData={data}
                           geoCodes={geoCodes}
-                          isCollapsed={collapsedCards[topicName] ?? true} // Default true (collapsed)
+                          isCollapsed={collapsedCards[topicName] ?? true}
                           onToggleCollapse={() =>
                             handleToggleCollapse(topicName)
                           }
                         />
                       ))
-                  ) : !property.isLoadingDemo &&
+                  ) : !isLoadingDemo &&
                     !demographicData?.error &&
                     demoFetchErrors.length === 0 &&
                     !crimeStats ? (
-                    // Show this only if NO demo AND NO crime data AND NO errors/loading
-                    <p>
-                      No specific demographic or crime data points were returned
-                      for this area.
-                    </p>
+                    <p>No specific demographic data points were returned.</p>
                   ) : null}
                 </div>
               </div>
             </div>
-          )}{" "}
-        {/* End Demographics Tab */}
-      </div>{" "}
-      {/* End detail-content */}
-    </div> // End property-detail
+          )}
+      </div>
+    </div>
   );
 };
 

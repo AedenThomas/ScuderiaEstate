@@ -24,3 +24,7 @@ node_modules
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+ai/pp-*.csv
+ai/xgb_price_model_v3.joblib
+server/cleaned_data.csv
+ai/certificates.csv
