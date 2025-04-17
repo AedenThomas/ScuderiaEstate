@@ -119,6 +119,14 @@ const PropertyDetail = ({
   // ========== HOOKS (Called First & Unconditionally) ==========
   const [activeTab, setActiveTab] = useState("overview");
   const [collapsedCards, setCollapsedCards] = useState({});
+  const demographics = useMemo(
+    () => property?.demographicData?.demographics,
+    [property?.demographicData]
+  );
+  const crimeStats = useMemo(
+    () => property?.crimeStats,
+    [property?.crimeStats]
+  );
 
   const handleToggleCollapse = useCallback((topicName) => {
     setCollapsedCards((prev) => ({ ...prev, [topicName]: !prev[topicName] }));
@@ -138,15 +146,6 @@ const PropertyDetail = ({
     });
   }, []);
 
-  // Process props using hooks
-  const demographics = useMemo(
-    () => property?.demographicData?.demographics,
-    [property?.demographicData]
-  );
-  const crimeStats = useMemo(
-    () => property?.crimeStats,
-    [property?.crimeStats]
-  );
   const { processedPredictionData, predictionDomain } = useMemo(() => {
     const predictionResults = property?.predictionResults;
     if (!predictionResults || predictionResults.length === 0)
@@ -174,6 +173,7 @@ const PropertyDetail = ({
 
   // Effect to initialize collapse state
   useEffect(() => {
+    console.log("Effect to initialize collapse state running..."); // Debug log
     const initialCollapseState = {};
     if (demographics && typeof demographics === "object") {
       Object.keys(demographics).forEach((topic) => {
@@ -183,12 +183,28 @@ const PropertyDetail = ({
     if (crimeStats) {
       initialCollapseState["Crime"] = true;
     }
+    // Update state ONLY if the calculated initial state has keys
+    // and it's different from the current keys (prevents unnecessary updates if data disappears)
+    const currentKeys = Object.keys(collapsedCards).sort().join(",");
+    const initialKeys = Object.keys(initialCollapseState).sort().join(",");
+
+    // Update only if the set of topics has actually changed or it's the very first load
     if (
-      JSON.stringify(initialCollapseState) !== JSON.stringify(collapsedCards)
+      Object.keys(initialCollapseState).length > 0 &&
+      initialKeys !== currentKeys
     ) {
+      console.log("Setting initial collapsed state:", initialCollapseState); // Debug log
       setCollapsedCards(initialCollapseState);
+    } else if (
+      Object.keys(initialCollapseState).length === 0 &&
+      currentKeys !== ""
+    ) {
+      console.log("Resetting collapsed state as data disappeared"); // Debug log
+      setCollapsedCards({}); // Reset if data disappears
     }
-  }, [demographics, crimeStats, collapsedCards]); // Add collapsedCards to dependency to prevent potential stale state issues
+
+    // ***** CORRECTED DEPENDENCY ARRAY *****
+  }, [demographics, crimeStats]); // Add collapsedCards to dependency to prevent potential stale state issues
 
   // ========== Early Return Check ==========
   if (!property) return null;
@@ -582,8 +598,14 @@ const PropertyDetail = ({
         {activeTab === "demographics" &&
           (isAreaSummary || demographicData || crimeStats) && (
             <div className="property-tab-content demographics-tab">
+              {" "}
+              {/* <<< Ensure these classes exist */}
               <div className="detail-section demographics-section">
+                {" "}
+                {/* <<< Ensure these classes exist */}
                 <div className="demographics-header">
+                  {" "}
+                  {/* <<< Ensure this class exists */}
                   <h3>
                     <FontAwesomeIcon icon={faUsersViewfinder} /> Area Insights (
                     {postcode})
@@ -591,6 +613,8 @@ const PropertyDetail = ({
                   {(demographics || crimeStats) &&
                     Object.keys(collapsedCards).length > 0 && (
                       <div className="expand-collapse-controls">
+                        {" "}
+                        {/* <<< Ensure this class exists */}
                         <button onClick={handleExpandAll} title="Expand All">
                           <FontAwesomeIcon icon={faPlusSquare} /> Expand All
                         </button>
