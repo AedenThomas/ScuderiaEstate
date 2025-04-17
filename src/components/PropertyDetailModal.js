@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
+  faLocationDot,
   faBed,
+  faBath,
+  faRulerCombined,
+  faClock,
+  faBuilding,
   faHome,
   faMoneyBillWave,
   faChartLine,
@@ -12,13 +17,14 @@ import {
   faChartBar,
   faDollarSign,
   faPercentage,
+  faMapMarkedAlt,
   faHistory,
+  faCalendarAlt,
   faEllipsisH,
   faTimes,
 } from "@fortawesome/free-solid-svg-icons";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import HeatmapLayer from "./HeatmapLayer";
-import LoadingScreen from "./LoadingScreen";
 
 const PropertyDetailModal = ({
   property,
@@ -110,13 +116,31 @@ const PropertyDetailModal = ({
     gradient: { 0.4: "blue", 0.6: "lime", 0.8: "yellow", 1.0: "red" },
   };
 
+  // Generate price history for the chart
+  const priceHistoryFormatted = transactionData.map((transaction) => ({
+    date: transaction.date.toLocaleDateString(),
+    price: transaction.price,
+  }));
+
+  // Calculate price change
+  const calculatePriceChange = (data) => {
+    if (!data || data.length < 2) return { value: 0, percentage: 0 };
+
+    const oldestPrice = data[data.length - 1].price;
+    const newestPrice = data[0].price;
+    const change = newestPrice - oldestPrice;
+    const percentage = (change / oldestPrice) * 100;
+
+    return {
+      value: change,
+      percentage: percentage.toFixed(1),
+    };
+  };
+
+  const priceChange = calculatePriceChange(transactionData);
+
   return (
     <div className="modal-overlay">
-      <LoadingScreen
-        isVisible={isLoading}
-        message="Loading property insights"
-      />
-
       <div className="property-detail-modal">
         <button className="close-button" onClick={onClose}>
           <FontAwesomeIcon icon={faTimes} />
@@ -440,7 +464,12 @@ const PropertyDetailModal = ({
                 <h3>
                   Transaction History <FontAwesomeIcon icon={faHistory} />
                 </h3>
-                {transactionData.length > 0 ? (
+                {isLoading ? (
+                  <div className="loading-overlay">
+                    <div className="loading-spinner"></div>
+                    <p>Loading transaction data...</p>
+                  </div>
+                ) : transactionData.length > 0 ? (
                   <table className="transaction-table">
                     <thead>
                       <tr>
