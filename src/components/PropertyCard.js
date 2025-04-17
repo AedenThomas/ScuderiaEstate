@@ -8,10 +8,10 @@ import {
   faRulerCombined,
   faSterlingSign,
 } from "@fortawesome/free-solid-svg-icons";
+import ImageSlideshow from "./ImageSlideshow"; // Import the new component
 
 // Helper to format price or show placeholder
 const formatDisplayPrice = (price) => {
-  // ... (keep existing function)
   if (
     price &&
     price !== "N/A" &&
@@ -52,18 +52,23 @@ const PropertyCard = ({ property, onViewProperty }) => {
 
   return (
     <div className="property-card simplified">
+      {/* --- Replace img with ImageSlideshow --- */}
       <div className="property-image">
-        <img
-          src={
-            property.image ||
-            "https://placehold.co/600x400/e9e9e9/1d1d1d?text=No+Image"
+        <ImageSlideshow
+          imageUrls={
+            property.image_urls || [
+              property.image ||
+                "https://placehold.co/600x400/e9e9e9/1d1d1d?text=No+Image",
+            ]
           }
-          alt={property.title || "Property Image"}
+          altText={property.title}
         />
         <div className="property-price-overlay">
           {formatDisplayPrice(price.asking)}
         </div>
       </div>
+
+      {/* --- Keep property-content --- */}
       <div className="property-content">
         <h3 className="property-title">
           {property.title || "Property Listing"}

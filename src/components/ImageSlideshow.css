@@ -1,0 +1,101 @@
+.image-slideshow {
+  position: relative;
+  width: 100%;
+  height: 100%; /* Ensure it fills the container */
+  overflow: hidden;
+  background-color: #eee; /* Background while images load */
+}
+
+.image-slideshow.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.image-slideshow.placeholder img {
+  max-width: 50%;
+  max-height: 50%;
+  opacity: 0.5;
+}
+
+.slide-image-container {
+  width: 100%;
+  height: 100%;
+}
+
+.slide-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Cover the area, might crop */
+  display: block;
+  animation: fadeEffect 0.5s ease-in-out; /* Simple fade */
+}
+
+@keyframes fadeEffect {
+  from {
+    opacity: 0.8;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.slide-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  padding: 8px 12px; /* Adjust padding */
+  cursor: pointer;
+  border-radius: 50%;
+  z-index: 10;
+  transition: background-color 0.2s ease;
+  line-height: 1; /* Align icon better */
+  width: 36px; /* Fixed size */
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.slide-arrow:hover {
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+.prev-arrow {
+  left: 10px;
+}
+
+.next-arrow {
+  right: 10px;
+}
+
+.slide-dots {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px; /* Space between dots */
+  z-index: 10;
+}
+
+.dot {
+  padding: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  background-color: rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.dot.active {
+  background-color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.9);
+}
+.dot:hover {
+  background-color: rgba(255, 255, 255, 0.7);
+}

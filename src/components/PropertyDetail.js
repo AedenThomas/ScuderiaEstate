@@ -22,6 +22,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 
 import DemographicCard from "./DemographicCard";
+import ImageSlideshow from "./ImageSlideshow"; // Import the new component
 import {
   LineChart,
   Line,
@@ -167,6 +168,7 @@ const PropertyDetail = ({
     source = "Unknown",
     detail_url = null,
     image = "https://placehold.co/600x400/cccccc/1d1d1d?text=Detail+View",
+    image_urls = [],
   } = property;
 
   const geoCodes = property?.demographicData?.geoCodes;
@@ -281,7 +283,15 @@ const PropertyDetail = ({
           <div className="property-tab-content overview-tab">
             <div className="overview-layout">
               <div className="overview-left">
-                <img src={image} alt={title} className="detail-image" />
+                {/* --- Replace img with ImageSlideshow --- */}
+                <div className="detail-image-container">
+                  {" "}
+                  {/* Added container for aspect ratio */}
+                  <ImageSlideshow
+                    imageUrls={image_urls || [image]}
+                    altText={title}
+                  />
+                </div>
                 {description && (
                   <div className="detail-section description-section">
                     <h3>

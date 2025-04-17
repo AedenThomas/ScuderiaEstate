@@ -905,9 +905,34 @@ body {
     flex-direction: column;
   }
   .overview-tab .overview-left {
-    flex-basis: auto;
+    flex: 0 0 55%; /* Adjust ratio */
+    display: flex; /* Allow image and description to stack */
+    flex-direction: column;
+  }
+  /* Style the container for the slideshow in detail view */
+  .overview-tab .detail-image-container {
+    width: 100%;
+    /* Optional: Control aspect ratio if needed */
+    /* aspect-ratio: 16 / 10; */
+    max-height: 400px; /* Limit height */
+    margin-bottom: 20px; /* Space below image */
+    border-radius: 6px;
+    overflow: hidden; /* Ensure slideshow corners are rounded */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Ensure the slideshow component itself fills the container */
+  .overview-tab .detail-image-container .image-slideshow {
+    height: 100%;
+    width: 100%;
+  }
+
+  .overview-tab .description-section {
+    margin-top: 0; /* Remove top margin if stacked */
+    flex-grow: 1; /* Allow description to take remaining space if needed */
   }
 }
+
 @media (max-width: 768px) {
   .property-detail .details-grid,
   .investment-metrics,
@@ -927,4 +952,20 @@ body {
     padding: 10px 12px;
     font-size: 0.9rem;
   }
+}
+
+.subtle-loading {
+  background-color: rgba(226, 227, 229, 0.8); /* Lighter background */
+  color: #383d41;
+  border: none; /* No border */
+  box-shadow: none; /* No shadow */
+  padding: 5px 10px; /* Smaller padding */
+  font-size: 0.85rem;
+  margin-top: 5px;
+}
+.subtle-loading p {
+  margin: 0;
+}
+.subtle-loading svg {
+  margin-right: 5px;
 }

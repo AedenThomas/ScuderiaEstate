@@ -353,6 +353,7 @@ class RightmoveScraper:
                 "longitude": "N/A",
                 "detail_url": "N/A",
                 "source": "Rightmove",
+                                "image_urls": [], # Initialize image URLs list
             }
             is_fatal_error = False
             detail_fetch_error = None
@@ -419,6 +420,43 @@ class RightmoveScraper:
                     )
                     time.sleep(random.uniform(0.5, 1.0))
 
+                    detail_page_indicator = (By.CSS_SELECTOR, "div[data-testid='photo-collage'], dl[data-test='infoReel']")
+                    WebDriverWait(self.driver, 15).until(
+                        EC.presence_of_element_located(detail_page_indicator)
+                    )
+                    time.sleep(random.uniform(0.5, 1.0))
+
+                    # --- SCRAPE IMAGE URLs ---
+                    try:
+                       # Target the main photo carousel container
+                       photo_carousel_div = self.driver.find_element(By.CSS_SELECTOR, "div.yyidGoi1pN3HEaahsw3bi")
+                       # Find image elements within the carousel links
+                       image_elements = photo_carousel_div.find_elements(By.CSS_SELECTOR, "a._2zqynvtIxFMCq18pu-g8d_ img")
+                       # OR find meta tags if img tags are unreliable
+                       # meta_elements = photo_carousel_div.find_elements(By.CSS_SELECTOR, "a._2zqynvtIxFMCq18pu-g8d_ meta[itemprop='contentUrl']")
+
+                       urls = []
+                       for img_element in image_elements:
+                           src = img_element.get_attribute('src')
+                           if src and src.startswith('https://media.rightmove.co.uk'):
+                               urls.append(src)
+                       # Alternative using meta tags:
+                       # for meta_element in meta_elements:
+                       #     content_url = meta_element.get_attribute('content')
+                       #     if content_url:
+                       #         urls.append(content_url)
+
+                       property_data["image_urls"] = list(dict.fromkeys(urls)) # Remove duplicates if any
+                       if not urls:
+                           print(f"    No image URLs found using selector for {property_data['id']}.", file=sys.stderr)
+
+                    except NoSuchElementException:
+                        print(f"    Photo carousel container not found for {property_data['id']}.", file=sys.stderr)
+                    except Exception as e_img:
+                        print(f"    Error extracting image URLs: {e_img}", file=sys.stderr)
+
+
+
                     # --- NEW: Extract Bathrooms & Property Type from Info Reel ---
                     try:
                         info_reel = self.driver.find_element(*info_reel_locator)
@@ -433,6 +471,8 @@ class RightmoveScraper:
                                 value_element = item.find_element(By.TAG_NAME, "dd")
                                 label_text = label_element.text.strip().upper()
                                 value_text = value_element.text.strip()
+
+                                
 
                                 if "BATHROOMS" in label_text:
                                     match_bath = re.search(r"\d+", value_text)
@@ -675,15 +715,13 @@ class RightmoveScraper:
                             is_fatal_error = True
 
                 # --- Print the processed property data to stdout via SSE ---
-                if detail_fetch_error:
-                    property_data["fetch_error"] = detail_fetch_error
-
+                if detail_fetch_error: property_data["fetch_error"] = detail_fetch_error
                 print_sse_json(property_data)
                 page_processed_count += 1
                 self.processed_properties_count += 1
 
-                if is_fatal_error:
-                    raise WebDriverException("Session lost during detail processing.")
+                if is_fatal_error: raise WebDriverException("Session lost")
+
 
             except WebDriverException as e_outer_wd:
                 print(
