@@ -1,58 +1,48 @@
-import React, { useEffect, useState } from "react";
-import "./LoadingScreen.css";
+// src/components/LoadingScreen.js
+import React, { useEffect } from "react"; // Removed useState as dots aren't needed for this version
+import "./LoadingScreen.css"; // We will update this file
 
+// Added logoSrc prop, removed progress and itemsFound as they are not used
+// for the main initial loading screen anymore.
 const LoadingScreen = ({
   isVisible,
-  message = "Loading properties",
-  progress = null,
-  itemsFound = 0,
+  message = "Loading...", // Simpler default message
+  logoSrc, // New prop for the logo path
 }) => {
-  const [dots, setDots] = useState("");
-
+  // Optional: Add effect to prevent body scroll when loading screen is visible
   useEffect(() => {
-    if (!isVisible) return;
-
-    const interval = setInterval(() => {
-      setDots((prevDots) => {
-        if (prevDots.length >= 3) return "";
-        return prevDots + ".";
-      });
-    }, 500);
-
-    return () => clearInterval(interval);
+    if (isVisible) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    // Cleanup function
+    return () => {
+      document.body.style.overflow = "unset";
+    };
   }, [isVisible]);
 
   if (!isVisible) return null;
 
   return (
     <div className="loading-screen">
-      <div className="loading-content">
-        <div className="loading-animation">
-          <div className="spinner-container">
-            <div className="spinner-ring"></div>
-            <div className="spinner-ring"></div>
-            <div className="spinner-ring"></div>
-          </div>
-        </div>
-
+      {" "}
+      {/* Keeps the overlay and blur */}
+      <div className="loading-content-centered">
+        {" "}
+        {/* New container for centering */}
+        {/* Logo */}
+        {logoSrc && (
+          <img src={logoSrc} alt="Loading Logo" className="loading-logo" />
+        )}
+        {/* Simple Spinner */}
+        <div className="loading-spinner"></div>
+        {/* Loading Text */}
         <div className="loading-text">
-          <h2>
-            {message}
-            {dots}
-          </h2>
-          {itemsFound > 0 && (
-            <p className="properties-found">{itemsFound} properties found</p>
-          )}
-
-          {progress !== null && (
-            <div className="progress-container">
-              <div
-                className="progress-bar"
-                style={{ width: `${Math.min(100, progress)}%` }}
-              ></div>
-            </div>
-          )}
+          {/* Removed dots from message for cleaner look */}
+          <h2>{message}</h2>
         </div>
+        {/* Removed progress bar and items found counter */}
       </div>
     </div>
   );

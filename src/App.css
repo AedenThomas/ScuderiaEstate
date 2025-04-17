@@ -24,13 +24,20 @@ body {
 
 /* --- Map Panel & Search (Mostly unchanged) --- */
 .map-panel {
+  /* Default width when property panel is visible */
   width: 60%;
   display: flex;
   flex-direction: column;
   position: relative;
-  border-right: 1px solid #ccc;
+  border-right: 1px solid #ccc; /* Default border */
   background-color: #e9ecef;
+  transition: width 0.3s ease-in-out; /* Smooth transition */
 }
+.map-panel.full-width {
+  width: 100%;
+  border-right: none; /* No border when full width */
+}
+
 .search-bar {
   display: flex;
   padding: 15px;
@@ -111,7 +118,8 @@ body {
 .map-container {
   flex-grow: 1;
   width: 100%;
-  height: 100%;
+  /* Height might need adjustment if search bar height changes */
+  height: calc(100% - 70px); /* Adjust 70px if search bar height differs */
   min-height: 300px;
 }
 
@@ -149,12 +157,17 @@ body {
 
 /* --- Property Panel --- */
 .property-panel {
+  /* Default width */
   width: 40%;
   overflow-y: auto;
   background-color: #ffffff;
   padding: 0;
   box-shadow: -2px 0 5px rgba(0, 0, 0, 0.05);
+  transition: opacity 0.3s ease-in-out, width 0.3s ease-in-out; /* Smooth transition */
+  /* Ensure it doesn't shrink */
+  flex-shrink: 0;
 }
+
 .property-panel h2 {
   padding: 15px 20px;
   margin: 0;
@@ -886,50 +899,28 @@ body {
   .app-container {
     flex-direction: column;
   }
+
+  /* When stacked, both panels take full width regardless */
   .map-panel,
+  .map-panel.full-width, /* Ensure full width applies here too */
   .property-panel {
     width: 100%;
-    height: 50vh;
+    height: 50vh; /* Or adjust as needed */
     border-right: none;
     border-bottom: 1px solid #ccc;
   }
   .property-panel {
-    height: auto;
+    height: auto; /* Allow content to determine height */
     min-height: 50vh;
     box-shadow: none;
+    order: 2; /* Ensure property panel comes after map */
+  }
+  .map-panel {
+    order: 1; /* Ensure map comes first */
   }
   .map-container {
+    /* Adjust height based on search bar when stacked */
     height: calc(50vh - 70px);
-  } /* Adjust based on search bar */
-  .overview-tab .overview-layout {
-    flex-direction: column;
-  }
-  .overview-tab .overview-left {
-    flex: 0 0 55%; /* Adjust ratio */
-    display: flex; /* Allow image and description to stack */
-    flex-direction: column;
-  }
-  /* Style the container for the slideshow in detail view */
-  .overview-tab .detail-image-container {
-    width: 100%;
-    /* Optional: Control aspect ratio if needed */
-    /* aspect-ratio: 16 / 10; */
-    max-height: 400px; /* Limit height */
-    margin-bottom: 20px; /* Space below image */
-    border-radius: 6px;
-    overflow: hidden; /* Ensure slideshow corners are rounded */
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-  }
-
-  /* Ensure the slideshow component itself fills the container */
-  .overview-tab .detail-image-container .image-slideshow {
-    height: 100%;
-    width: 100%;
-  }
-
-  .overview-tab .description-section {
-    margin-top: 0; /* Remove top margin if stacked */
-    flex-grow: 1; /* Allow description to take remaining space if needed */
   }
 }
 
