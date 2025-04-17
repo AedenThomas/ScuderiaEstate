@@ -1,49 +1,44 @@
-/* Base styles */
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
-
 body {
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   line-height: 1.6;
   color: #333;
   background-color: #f5f7fa;
 }
-
 .App {
   display: flex;
   flex-direction: column;
-  height: 100vh; /* Full viewport height */
+  height: 100vh;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  background-color: #f4f7f6; /* Light background */
+  background-color: #f4f7f6;
 }
-
 .app-container {
   display: flex;
-  flex-grow: 1; /* Allow container to fill height */
-  overflow: hidden; /* Prevent overall scrollbars if panels handle their own */
+  flex-grow: 1;
+  overflow: hidden;
 }
 
-/* Map Panel */
+/* --- Map Panel & Search (Mostly unchanged) --- */
 .map-panel {
-  width: 60%; /* Adjust width as needed */
+  width: 60%;
   display: flex;
   flex-direction: column;
-  position: relative; /* Needed for absolute positioning of search status */
+  position: relative;
   border-right: 1px solid #ccc;
-  background-color: #e9ecef; /* Slight contrast for map background */
+  background-color: #e9ecef;
 }
-
 .search-bar {
   display: flex;
   padding: 15px;
   background-color: #ffffff;
   border-bottom: 1px solid #ccc;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  z-index: 1002; /* Ensure above map elements */
 }
-
 .search-bar input {
   flex-grow: 1;
   padding: 10px 15px;
@@ -51,7 +46,6 @@ body {
   border-radius: 4px 0 0 4px;
   font-size: 1rem;
 }
-
 .search-bar button {
   padding: 10px 20px;
   border: 1px solid #007bff;
@@ -62,128 +56,184 @@ body {
   font-size: 1rem;
   transition: background-color 0.2s ease;
 }
-
 .search-bar button:hover {
   background-color: #0056b3;
 }
-
 .search-bar button:disabled {
   background-color: #a0cfff;
   border-color: #a0cfff;
   cursor: not-allowed;
 }
 
-/* Search Status Messages */
-.search-status {
+/* --- Search Status Messages --- */
+/* Position container absolutely */
+.search-status-container {
   position: absolute;
-  top: 80px; /* Adjust below search bar */
+  top: 70px; /* Adjust based on search bar height */
   left: 15px;
   right: 15px;
-  padding: 10px 15px;
-  border-radius: 4px;
   z-index: 1001; /* Above map but below popups */
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 5px; /* Space between multiple messages */
+  pointer-events: none; /* Allow map interaction underneath */
+}
+/* Individual message styling */
+.search-status {
+  padding: 8px 12px; /* Slightly smaller padding */
+  border-radius: 4px;
   font-weight: 500;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  width: fit-content; /* Only take width needed */
+  max-width: 90%; /* Prevent full width */
+  margin: 0 auto; /* Center horizontally */
+  pointer-events: all; /* Allow interaction with message itself if needed */
+  font-size: 0.9rem;
+  opacity: 0.95;
 }
-.error-message {
-  background-color: #fff3cd;
-  color: #856404;
-  border: 1px solid #ffeeba;
+.search-status.error-message {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
 }
-.info-message {
+.search-status.info-message {
   background-color: #d1ecf1;
   color: #0c5460;
   border: 1px solid #bee5eb;
 }
+.search-status.loading-indicator {
+  background-color: #e2e3e5;
+  color: #383d41;
+  border: 1px solid #d6d8db;
+}
 
+/* --- Map Container --- */
 .map-container {
-  flex-grow: 1; /* Fill remaining space in map-panel */
+  flex-grow: 1;
   width: 100%;
-  height: 100%; /* Crucial for Leaflet */
-  min-height: 300px; /* Ensure minimum map height */
+  height: 100%;
+  min-height: 300px;
 }
 
-/* Leaflet Popup Button */
+/* --- Leaflet Popup Button (Unchanged) --- */
 .popup-button {
-  margin-top: 8px;
-  padding: 5px 10px;
-  font-size: 0.9em;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-}
-.popup-button:hover {
-  background-color: #0056b3;
+  /* ... */
 }
 
-/* Property Panel */
+/* --- NEW: Map Price Marker Styles --- */
+.price-marker-container {
+  /* No background needed for the container itself */
+}
+.price-marker {
+  background-color: rgba(
+    0,
+    86,
+    179,
+    0.85
+  ); /* Darker blue, slightly transparent */
+  color: white;
+  padding: 3px 8px;
+  border-radius: 12px; /* Pill shape */
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  min-width: 45px; /* Ensure minimum width */
+  transition: background-color 0.2s ease;
+}
+.leaflet-marker-icon .price-marker:hover {
+  background-color: rgba(0, 66, 139, 0.95); /* Darken on hover */
+}
+
+/* --- Property Panel --- */
 .property-panel {
-  width: 40%; /* Adjust width */
-  overflow-y: auto; /* Allow scrolling if content exceeds height */
+  width: 40%;
+  overflow-y: auto;
   background-color: #ffffff;
-  padding: 0; /* Remove padding, handled by inner components */
+  padding: 0;
   box-shadow: -2px 0 5px rgba(0, 0, 0, 0.05);
 }
-
 .property-panel h2 {
   padding: 15px 20px;
   margin: 0;
   border-bottom: 1px solid #eee;
-  font-size: 1.4rem;
+  font-size: 1.3rem;
   color: #333;
-  background-color: #f8f9fa; /* Light header background */
+  background-color: #f8f9fa;
+  font-weight: 600;
 }
 
-/* Property List (in Listings View) */
+/* --- Property List (in Listings View) --- */
 .property-list {
   padding: 15px;
   display: flex;
   flex-direction: column;
-  gap: 15px; /* Space between cards */
+  gap: 15px;
 }
 
-/* Property Card Styles */
-.property-card {
+/* --- Property Card Styles (Simplified) --- */
+.property-card.simplified {
   background-color: #fff;
   border: 1px solid #e0e0e0;
-  border-radius: 5px;
+  border-radius: 6px;
   overflow: hidden;
   display: flex;
-  flex-direction: column; /* Stack image and content */
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  flex-direction: column;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   transition: box-shadow 0.2s ease-in-out;
 }
-.property-card:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+.property-card.simplified:hover {
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
 }
 
+.property-card .property-image {
+  position: relative; /* For price overlay */
+  width: 100%;
+  height: 180px; /* Fixed height */
+  overflow: hidden;
+}
 .property-card .property-image img {
   width: 100%;
-  height: 180px; /* Fixed height for card image */
-  object-fit: cover; /* Crop image nicely */
+  height: 100%;
+  object-fit: cover;
   display: block;
+}
+
+/* Price Overlay on Card Image */
+.property-price-overlay {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 1.2rem; /* Make price prominent */
+  font-weight: bold;
+  z-index: 1;
 }
 
 .property-card .property-content {
   padding: 15px;
-  flex-grow: 1; /* Allow content to fill space */
+  flex-grow: 1;
   display: flex;
   flex-direction: column;
 }
 
 .property-card .property-title {
   margin: 0 0 5px 0;
-  font-size: 1.2rem;
-  color: #0056b3; /* Brand color */
+  font-size: 1.1rem;
+  color: #0056b3;
+  font-weight: 600;
+  line-height: 1.3;
 }
 
 .property-card .property-location {
   font-size: 0.9rem;
   color: #555;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -193,16 +243,13 @@ body {
   color: #777;
 }
 
-.property-card .property-details {
-  display: grid;
-  grid-template-columns: repeat(
-    auto-fit,
-    minmax(100px, 1fr)
-  ); /* Responsive grid */
-  gap: 8px;
-  font-size: 0.85rem;
+.property-card .property-details.simple-details {
+  display: flex; /* Use flexbox for simple row */
+  flex-wrap: wrap;
+  gap: 15px; /* Increase gap */
+  font-size: 0.9rem;
   color: #333;
-  margin-bottom: 12px;
+  margin-bottom: 15px;
   padding-top: 10px;
   border-top: 1px solid #eee;
 }
@@ -210,67 +257,11 @@ body {
 .property-card .detail-item {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
 }
 .property-card .detail-item svg {
-  color: #007bff; /* Icon color */
-}
-
-.property-card .property-pricing {
-  font-size: 0.9rem;
-  margin-bottom: 15px;
-  background-color: #f8f9fa;
-  padding: 10px;
-  border-radius: 4px;
-}
-
-.property-card .price-row {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 4px;
-}
-.property-card .price-row:last-child {
-  margin-bottom: 0;
-}
-
-.property-card .price-label {
-  color: #555;
-}
-
-.property-card .price-value {
-  font-weight: bold;
-  color: #333;
-}
-
-.property-card .property-sections {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 15px;
-  margin-bottom: 15px;
-  font-size: 0.85rem;
-  padding-top: 10px;
-  border-top: 1px solid #eee;
-}
-.property-card .section h4 {
-  margin: 0 0 5px 0;
-  font-size: 0.9rem;
-  color: #333;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-.property-card .section h4 svg {
-  color: #555;
-}
-
-.property-card .compact-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  color: #555;
-}
-.property-card .compact-list li {
-  margin-bottom: 3px;
+  color: #007bff;
+  font-size: 0.9em;
 }
 
 .property-card .property-footer {
@@ -278,23 +269,20 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-top: 10px;
+  padding-top: 12px;
   border-top: 1px solid #eee;
-  font-size: 0.85rem;
-  color: #555;
 }
-.property-card .risk-score {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-.property-card .risk-score svg {
-  color: #ffc107; /* Warning color */
+.property-card .source-tag {
+  font-size: 0.8rem;
+  color: #6c757d;
+  background-color: #e9ecef;
+  padding: 2px 6px;
+  border-radius: 3px;
 }
 
 .property-card .view-property-btn {
   padding: 8px 15px;
-  background-color: #28a745; /* Success color */
+  background-color: #007bff;
   color: white;
   border: none;
   border-radius: 4px;
@@ -302,15 +290,15 @@ body {
   font-size: 0.9rem;
   transition: background-color 0.2s ease;
 }
-
 .property-card .view-property-btn:hover {
-  background-color: #218838;
+  background-color: #0056b3;
 }
 
-/* Property Detail Styles */
+/* --- Property Detail Styles --- */
 .property-detail {
   display: flex;
   flex-direction: column;
+  height: 100%; /* Ensure takes full panel height */
 }
 
 .property-detail .detail-header {
@@ -320,8 +308,8 @@ body {
   padding: 10px 20px;
   background-color: #f8f9fa;
   border-bottom: 1px solid #ccc;
+  flex-shrink: 0; /* Prevent header from shrinking */
 }
-
 .property-detail .back-button {
   background: none;
   border: none;
@@ -331,428 +319,484 @@ body {
   display: flex;
   align-items: center;
   gap: 5px;
+  padding: 5px;
 }
 .property-detail .back-button:hover {
   text-decoration: underline;
 }
 
-.property-detail .tabs button {
-  padding: 8px 15px;
-  margin-left: 5px;
-  border: 1px solid transparent;
-  background-color: transparent;
-  cursor: pointer;
-  font-size: 1rem;
-  color: #555;
-  border-bottom: 3px solid transparent; /* Underline effect */
-  transition: border-color 0.2s ease, color 0.2s ease;
+.property-detail .header-title-location {
+  flex-grow: 1;
+  text-align: center;
+  margin: 0 15px;
 }
-
-.property-detail .tabs button.active {
-  color: #007bff;
-  font-weight: bold;
-  border-bottom-color: #007bff;
-}
-.property-detail .tabs button:hover:not(.active) {
-  color: #0056b3;
-  border-bottom-color: #ccc;
-}
-
-.property-detail .property-image-large img {
-  width: 100%;
-  max-height: 300px; /* Limit image height */
-  object-fit: cover;
-  display: block;
-}
-
-.property-detail .property-title-section {
-  padding: 15px 20px;
-  border-bottom: 1px solid #eee;
-}
-
-.property-detail .property-title-section h2 {
-  margin: 0 0 5px 0;
-  font-size: 1.6rem;
+.property-detail .header-title-location h2 {
+  margin: 0 0 2px 0;
+  font-size: 1.4rem;
   color: #333;
 }
-
-.property-detail .property-location {
-  font-size: 1rem;
+.property-detail .detail-location {
+  font-size: 0.9rem;
   color: #555;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
 }
-.property-detail .postcode {
-  font-size: 0.9em;
-  color: #777;
+.property-detail .data-source-tag {
+  font-size: 0.75rem;
+  background-color: #e9ecef;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 5px;
+}
+.property-detail .external-link.button-like {
+  padding: 6px 12px;
+  background-color: #6c757d;
+  color: white;
+  text-decoration: none;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  transition: background-color 0.2s ease;
+}
+.property-detail .external-link.button-like:hover {
+  background-color: #5a6268;
+}
+.property-detail .external-link svg {
+  margin-left: 4px;
+}
+
+/* --- Tabs --- */
+.property-detail .detail-tabs {
+  display: flex;
+  background-color: #f1f3f5;
+  border-bottom: 1px solid #ccc;
+  padding: 0 10px;
+  flex-shrink: 0; /* Prevent shrinking */
+}
+.property-detail .tab-button {
+  padding: 12px 18px;
+  margin: 0 2px;
+  border: none;
+  background-color: transparent;
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: #555;
+  border-bottom: 3px solid transparent; /* Underline effect */
+  transition: border-color 0.2s ease, color 0.2s ease,
+    background-color 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+.property-detail .tab-button svg {
+  font-size: 1.1em;
+}
+.property-detail .tab-button.active {
+  color: #007bff;
+  font-weight: 600;
+  border-bottom-color: #007bff;
+}
+.property-detail .tab-button:hover:not(.active) {
+  color: #0056b3;
+  background-color: #e9ecef;
+}
+
+/* --- Tab Content Area --- */
+.property-detail .detail-content {
+  flex-grow: 1; /* Allow content to fill space */
+  overflow-y: auto; /* Enable scrolling ONLY for content */
+  padding: 20px; /* Add padding around the content */
 }
 
 .property-detail .property-tab-content {
-  padding: 20px;
+  /* Base styles for tab content if needed */
+  animation: fadeIn 0.3s ease-in-out;
 }
 
-.property-detail .detail-section {
-  margin-bottom: 25px;
-}
-.property-detail .detail-section:last-child {
-  margin-bottom: 0;
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
-.property-detail .detail-section h3 {
+/* --- Overview Tab --- */
+.overview-tab .overview-layout {
+  display: flex;
+  gap: 20px;
+}
+.overview-tab .overview-left {
+  flex: 0 0 55%; /* Adjust ratio */
+}
+.overview-tab .overview-right {
+  flex: 1;
+}
+
+.overview-tab .detail-image {
+  width: 100%;
+  border-radius: 6px;
+  margin-bottom: 15px;
+  max-height: 350px;
+  object-fit: cover;
+}
+.overview-tab .description-section {
+  margin-top: 20px;
+}
+.overview-tab .detail-description {
+  font-size: 0.95rem;
+  color: #444;
+  line-height: 1.7;
+}
+
+.overview-tab .property-summary h3,
+.overview-tab .description-section h3 {
   margin: 0 0 15px 0;
   font-size: 1.2rem;
   color: #333;
   border-bottom: 2px solid #007bff;
-  padding-bottom: 5px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.property-detail .detail-section h3 svg {
-  font-size: 0.9em;
-  color: #aaa;
-}
-
-.property-detail .details-grid {
-  display: grid;
-  grid-template-columns: repeat(
-    auto-fit,
-    minmax(200px, 1fr)
-  ); /* Responsive grid */
-  gap: 15px;
-}
-
-.property-detail .metric {
-  background-color: #f8f9fa;
-  padding: 15px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  border: 1px solid #eee;
-}
-
-.property-detail .metric svg {
-  font-size: 1.5rem; /* Larger icons */
-  color: #007bff;
-  width: 30px; /* Fixed width for alignment */
-  text-align: center;
-}
-
-.property-detail .metric-content {
-  display: flex;
-  flex-direction: column;
-}
-
-.property-detail .metric-label {
-  font-size: 0.85rem;
-  color: #555;
-  margin-bottom: 2px;
-  text-transform: uppercase;
-}
-
-.property-detail .metric-value {
-  font-size: 1.1rem;
-  font-weight: bold;
-  color: #333;
-}
-.property-detail .metric-value.no-result {
-  color: #888;
-  font-style: italic;
-  font-weight: normal;
-  font-size: 1rem;
-}
-
-.property-detail .amenities-list,
-.property-detail .transport-list,
-.property-detail .schools-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 10px;
-}
-.property-detail .amenities-list li,
-.property-detail .transport-list li,
-.property-detail .schools-list li {
+  padding-bottom: 8px;
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.overview-tab .summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 15px;
+}
+.overview-tab .summary-item {
   background-color: #f8f9fa;
-  padding: 8px 12px;
-  border-radius: 4px;
-  font-size: 0.95rem;
-}
-.property-detail .amenities-list li svg,
-.property-detail .transport-list li svg,
-.property-detail .schools-list li svg {
-  color: #007bff;
-}
-
-/* Investment Tab Specific */
-.market-trend-graph.placeholder {
-  text-align: center;
-  padding: 30px 20px;
-  background-color: #e9ecef;
-  border: 1px dashed #ccc;
-  border-radius: 4px;
-  color: #6c757d;
-  margin-bottom: 20px;
-}
-
-.market-trend-graph.placeholder svg {
-  margin-bottom: 15px;
-  color: #adb5bd;
-}
-
-/* History Tab Specific */
-.price-stats.history-stats {
-  background-color: #f1f3f5; /* Slightly different background */
-  padding: 15px;
-  border-radius: 4px;
-  margin-bottom: 20px;
-  border: 1px solid #dee2e6;
-}
-
-.history-stats .stat-item {
-  margin-bottom: 12px;
+  padding: 12px 15px;
+  border-radius: 5px;
+  border: 1px solid #eee;
   display: flex;
-  flex-wrap: wrap; /* Allow wrapping on small screens */
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column; /* Stack label and value */
+}
+.overview-tab .summary-item .summary-icon {
+  font-size: 1.3rem;
+  color: #007bff;
+  margin-bottom: 8px; /* Space below icon */
+}
+.overview-tab .summary-item .summary-label {
+  font-size: 0.8rem;
+  color: #555;
+  margin-bottom: 3px;
+  text-transform: uppercase;
+}
+.overview-tab .summary-item .summary-value {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #333;
+}
+.overview-tab .summary-item.price-prominent .summary-value {
+  font-size: 1.3rem;
+  color: #dc3545; /* Highlight price */
+}
+
+/* --- Investment & Forecast Tab --- */
+.investment-tab .detail-section {
+  margin-bottom: 30px;
+}
+.investment-tab .detail-section h3 {
+  /* Use standard section heading */
+  margin: 0 0 15px 0;
+  font-size: 1.2rem;
+  color: #333;
+  border-bottom: 2px solid #007bff;
   padding-bottom: 8px;
-  border-bottom: 1px dashed #ced4da;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-.history-stats .stat-item:last-child {
-  margin-bottom: 0;
-  border-bottom: none;
-}
-
-.history-stats .stat-label {
-  font-weight: 500; /* Semi-bold */
-  color: #495057;
-  margin-right: 10px;
-  font-size: 0.9rem;
-}
-
-.history-stats .stat-value {
+.investment-tab .detail-section h4 {
   font-size: 1rem;
-  color: #212529;
-  text-align: right;
-}
-.history-stats .price-value {
-  font-weight: bold;
-  color: #0056b3; /* Darker blue for price */
-}
-.history-stats .price-change {
-  font-weight: bold;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 0.95rem;
-}
-.history-stats .price-change.positive {
-  color: #155724;
-  background-color: #d4edda; /* Light green */
-}
-.history-stats .price-change.negative {
-  color: #721c24;
-  background-color: #f8d7da; /* Light red */
+  color: #495057;
+  margin: 15px 0 10px 0;
 }
 
-.table-container {
-  overflow-x: auto; /* Allow horizontal scroll on small screens */
-  max-width: 100%;
+.investment-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 15px;
+  margin-bottom: 25px;
+}
+.metric-box {
+  background-color: #f1f3f5;
+  padding: 15px;
+  border-radius: 5px;
+  border: 1px solid #dee2e6;
+  text-align: center;
+}
+.metric-label {
+  display: block;
+  font-size: 0.85rem;
+  color: #555;
+  margin-bottom: 5px;
+}
+.metric-value {
+  display: block;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #333;
 }
 
+.transaction-history .table-container {
+  overflow-x: auto;
+}
 .transaction-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 15px;
   font-size: 0.9rem;
 }
-
 .transaction-table th,
 .transaction-table td {
   text-align: left;
   padding: 10px 12px;
   border-bottom: 1px solid #eee;
 }
-
 .transaction-table th {
   background-color: #f8f9fa;
   font-weight: 600;
   color: #495057;
 }
-
 .transaction-table tbody tr:nth-child(odd) {
-  background-color: #fcfcfc;
+  background-color: #fdfdfd;
 }
 .transaction-table tbody tr:hover {
   background-color: #f1f3f5;
 }
-
-.no-data-message {
+.transaction-table .price-cell {
+  font-weight: 500;
+  color: #0056b3;
+}
+.more-transactions {
   text-align: center;
-  padding: 25px 20px;
-  background-color: #fff3cd;
-  border: 1px solid #ffeeba;
-  border-radius: 4px;
-  color: #856404; /* Dark yellow text */
-}
-.no-data-message svg {
-  margin-right: 8px;
-  font-size: 1.2em;
-  vertical-align: middle;
-}
-.no-data-message p {
-  margin: 5px 0;
+  font-style: italic;
+  color: #6c757d;
+  margin-top: 10px;
+  font-size: 0.9rem;
 }
 
-.area-summary-note {
-  background-color: #eaf2f8;
+/* Prediction Section */
+.prediction-info .prediction-chart-container {
+  background-color: #f8f9fa;
   padding: 15px;
-  border-left: 4px solid #3498db;
-  margin: 20px 0;
-  border-radius: 0 4px 4px 0;
+  border-radius: 5px;
+  border: 1px solid #eee;
+  margin-bottom: 15px;
+}
+.prediction-list {
+  list-style: none;
+  padding: 10px 0 0 0;
+  margin-top: 15px;
+  border-top: 1px dashed #ccc;
+}
+.prediction-list li {
   font-size: 0.95rem;
-  color: #1a5276;
-}
-
-/* Responsive Adjustments (Example) */
-@media (max-width: 992px) {
-  .app-container {
-    flex-direction: column;
-  }
-  .map-panel,
-  .property-panel {
-    width: 100%;
-    height: 50vh; /* Split height */
-    border-right: none;
-    border-bottom: 1px solid #ccc;
-  }
-  .property-panel {
-    height: auto; /* Allow property panel to grow */
-    min-height: 50vh;
-    box-shadow: none;
-  }
-  .map-container {
-    /* Ensure map still has height */
-    height: calc(50vh - 70px); /* Adjust based on search bar height */
-  }
-}
-
-@media (max-width: 768px) {
-  .property-detail .details-grid {
-    grid-template-columns: 1fr; /* Stack metrics */
-  }
-  .property-card .property-details {
-    grid-template-columns: 1fr 1fr; /* Two columns for card details */
-  }
-  .property-card .property-sections {
-    grid-template-columns: 1fr;
-  }
-}
-
-.property-detail .demographics-tab-content {
-  /* Optional: slightly different background for this tab */
-  /* background-color: #f8f9fa; */
-}
-
-.property-detail .demographics-section h3 {
-  /* Adjust heading style if needed */
-  /* border-bottom: 2px solid #6c757d; */ /* Gray border? */
-  /* color: #495057; */
-}
-
-.demographics-cards-container {
+  margin-bottom: 5px;
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
+}
+.prediction-list strong {
+  color: #333;
+}
+
+/* Prediction Tooltip */
+.custom-tooltip.prediction-tooltip {
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 1px solid #ccc;
+  padding: 8px 12px;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  font-size: 0.9rem;
+}
+.custom-tooltip .label {
+  font-weight: bold;
+  margin-bottom: 4px;
+  color: #333;
+}
+.custom-tooltip .intro {
+  color: #555;
+}
+
+/* --- Demographics Tab --- */
+.demographics-tab .demographics-section {
+  /* Use standard section */
+}
+.demographics-tab .demographics-header {
+  /* Style defined in PropertyDetail CSS already */
+}
+
+/* --- Loading/Error Indicators --- */
+.loading-indicator,
+.error-message,
+.warning-message {
+  text-align: center;
+  padding: 20px;
+  margin: 15px 0;
+  border-radius: 5px;
+  font-size: 1rem;
+}
+.loading-indicator {
+  background-color: #e9ecef;
+  color: #495057;
+}
+.loading-indicator svg {
+  margin-right: 8px;
+}
+.error-message {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+.warning-message {
+  background-color: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeeba;
+}
+.warning-message ul {
+  list-style: none;
+  padding: 0;
+  margin-top: 5px;
+}
+.warning-message li {
+  font-size: 0.9em;
+}
+
+/* --- Demographics Card/Chart Styles (Keep existing from previous step) --- */
+.demographics-tab .demographics-section {
+  /* Use standard section styling */
+}
+.demographics-tab .demographics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px; /* Add space below header */
+  padding-bottom: 10px; /* Add space below header text */
+  border-bottom: 1px solid #eee; /* Separator line */
+}
+.demographics-tab .demographics-header h3 {
+  /* Use standard section heading style if defined elsewhere, or add: */
+  margin: 0;
+  font-size: 1.2rem;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.demographics-tab .expand-collapse-controls button {
+  background-color: #f1f3f5;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 5px 10px;
+  margin-left: 10px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #495057;
+  transition: background-color 0.2s ease;
+}
+.demographics-tab .expand-collapse-controls button:hover {
+  background-color: #e9ecef;
+}
+
+/* --- Demographics Cards Container --- */
+.demographics-cards-container {
+  display: grid;
+  /* Adjust columns based on desired layout */
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(300px, 1fr)
+  ); /* Responsive grid */
   gap: 20px; /* Space between cards */
 }
 
+/* --- Demographic Card Styles (Ensure these exist and are correct) --- */
 .demographic-card {
-  background-color: #ffffff;
-  border: 1px solid #dee2e6;
+  background-color: #fff;
+  border: 1px solid #e0e0e0;
   border-radius: 6px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-  overflow: hidden; /* Ensure content stays within rounded corners */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  margin-bottom: 15px; /* Remove if using grid gap */
+  transition: box-shadow 0.2s ease-in-out;
+  overflow: hidden; /* Ensure content doesn't spill */
 }
-
-.demographic-card.error,
+.demographic-card.collapsed .card-content {
+  /* Styles already handle hiding */
+}
+.demographic-card.error {
+  border-left: 4px solid #dc3545;
+}
 .demographic-card.no-data-card {
-  border-left: 4px solid #dc3545; /* Red border for error */
+  border-left: 4px solid #ffc107;
 }
-.demographic-card.no-data-card {
-  border-left: 4px solid #ffc107; /* Yellow border for no data */
-}
-
 
 .demographic-card .card-header {
   display: flex;
   align-items: center;
-  gap: 12px;
   padding: 12px 15px;
-  background-color: #f8f9fa; /* Light header background */
-  border-bottom: 1px solid #dee2e6;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #eee;
+  cursor: pointer; /* Indicate clickable */
+}
+.demographic-card .card-header.clickable:hover {
+  background-color: #e9ecef; /* Hover effect */
 }
 
-.demographic-card .topic-icon {
-  font-size: 1.4rem;
-  color: #007bff; /* Primary color for icons */
-  width: 25px; /* Fixed width */
+.demographic-card .card-header .topic-icon {
+  margin-right: 10px;
+  color: #007bff;
+  font-size: 1.1rem;
+  width: 20px; /* Ensure consistent width */
   text-align: center;
 }
-
-.demographic-card h3 {
-  margin: 0;
-  font-size: 1.15rem;
-  font-weight: 600;
-  color: #343a40;
+.demographic-card .card-header h3 {
   flex-grow: 1;
+  margin: 0;
+  font-size: 1.05rem; /* Slightly smaller */
+  font-weight: 600;
+  color: #333;
+}
+.demographic-card .card-header .toggle-icon {
+  margin-left: 10px;
+  color: #6c757d;
 }
 
 .demographic-card .card-content {
   padding: 15px;
-  display: flex;
-  flex-direction: column; /* Stack LSOA/LAD sections */
-  gap: 20px;
+  animation: fadeIn 0.3s ease-in-out; /* Keep fade-in */
 }
-
-.demographic-card .card-content.no-data p,
-.demographic-card .card-content.error-content p {
-  font-style: italic;
-  color: #6c757d;
-  margin: 0;
-  text-align: center;
+.demographic-card .card-content .no-data p,
+.demographic-card .card-content .error-content p {
+  margin-bottom: 5px;
+  color: #555;
 }
-.demographic-card .card-content.error-content small {
-  display: block;
-  text-align: center;
-  margin-top: 5px;
-  color: #dc3545;
+.demographic-card .card-content .no-data small,
+.demographic-card .card-content .error-content small {
+  font-size: 0.8em;
+  color: #777;
 }
-
-
 .demographic-card .chart-section {
-  /* Styles for the container of each chart (LSOA/LAD) */
+  margin-bottom: 15px; /* Space between LSOA/LAD charts */
+}
+.demographic-card .chart-section:last-child {
+  margin-bottom: 0;
 }
 
-
-/* --- Demographic Bar Chart Styles --- */
-
+/* --- Demographic Bar Chart Styles (Ensure these exist) --- */
 .demographic-bar-chart {
-  /* Container for one level's chart */
+  /* Optional: Add some margin if not inside card */
 }
-
 .demographic-bar-chart h5 {
-  font-size: 0.95rem;
-  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 10px;
   color: #495057;
-  margin: 0 0 10px 0;
-  padding-bottom: 5px;
-  border-bottom: 1px dashed #ced4da;
+  font-weight: 600;
 }
 .demographic-bar-chart h5 .area-name {
   font-weight: 400;
@@ -760,171 +804,127 @@ body {
   font-size: 0.9em;
 }
 
+.demographic-bar-chart .no-chart-data {
+  font-size: 0.9rem;
+  color: #6c757d;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  text-align: center;
+}
 
 .chart-list {
   list-style: none;
   padding: 0;
   margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px; /* Space between bars */
+  font-size: 0.85rem;
 }
-
 .chart-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  /* white-space: nowrap; */ /* Prevent label wrapping if desired */
+  margin-bottom: 6px; /* Space between bars */
+  cursor: default; /* Remove text cursor */
 }
-
 .chart-label {
-  flex: 0 0 45%; /* Fixed width for labels, adjust as needed */
-  font-size: 0.85rem;
-  color: #495057;
+  width: 40%; /* Adjust as needed */
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap; /* Prevent wrapping */
-  text-align: right; /* Align label text right */
-  padding-right: 5px;
+  padding-right: 10px;
+  color: #333;
 }
-
 .chart-bar-container {
-  flex-grow: 1; /* Bar takes remaining space */
-  background-color: #e9ecef; /* Background track for the bar */
+  flex-grow: 1;
+  height: 16px; /* Bar height */
+  background-color: #e9ecef; /* Background track */
   border-radius: 3px;
-  height: 16px; /* Height of the bar track */
-  overflow: hidden; /* Hide overflow of the bar */
-  position: relative; /* For potential future absolute elements */
+  overflow: hidden; /* Clip bar */
+  margin: 0 8px; /* Space around bar */
 }
-
 .chart-bar {
   height: 100%;
-  border-radius: 3px;
-  transition: width 0.5s ease-out; /* Smooth animation */
   background-color: #007bff; /* Default bar color */
+  border-radius: 3px;
+  transition: width 0.3s ease-in-out;
 }
-
 .chart-percentage {
-  flex: 0 0 50px; /* Fixed width for percentage value */
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: #343a40;
+  width: 45px; /* Fixed width for alignment */
   text-align: right;
-  font-feature-settings: "tnum";
-  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  color: #555;
 }
 
-.no-chart-data {
-  font-size: 0.9rem;
-  font-style: italic;
-  color: #6c757d;
-  padding: 10px 0;
+/* --- General Helpers --- */
+.compact-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
-
-/* Adjust responsiveness if needed */
-@media (max-width: 576px) {
-  .chart-item {
-      /* Allow wrapping on very small screens */
-      /* flex-wrap: wrap; */
-      position: relative; /* Adjust layout if needed */
-      padding-bottom: 5px;
-  }
-   .chart-label {
-       flex-basis: 100%; /* Label takes full width */
-       text-align: left; /* Align left */
-       margin-bottom: 3px;
-       white-space: normal; /* Allow wrapping */
-   }
-   .chart-bar-container {
-       /* Adjust bar container */
-       height: 12px;
-   }
-    .chart-percentage {
-      /* Position percentage differently if needed */
-       position: absolute;
-       right: 0;
-       top: 0;
-       font-size: 0.8rem;
-    }
-}
-.property-detail .demographics-section .demographics-header {
+.compact-list li {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px; /* Add space below header */
-  padding-bottom: 10px;
-  border-bottom: 2px solid #007bff; /* Match detail section heading border */
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 0.95rem;
 }
-.property-detail .demographics-section .demographics-header h3 {
-  border-bottom: none; /* Remove default h3 border */
-  padding-bottom: 0;
-  margin-bottom: 0;
-}
-
-
-.expand-collapse-controls button {
-  background: none;
-  border: 1px solid #ced4da;
-  padding: 5px 10px;
-  margin-left: 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  color: #495057;
-  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
-}
-.expand-collapse-controls button:hover {
-  background-color: #e9ecef;
-  border-color: #adb5bd;
-}
-.expand-collapse-controls button svg {
-  margin-right: 5px;
+.compact-list .list-icon {
+  color: #007bff;
+  width: 16px;
+  text-align: center;
 }
 
-
-.demographic-card .card-header.clickable {
-  cursor: pointer; /* Indicate clickable header */
-  transition: background-color 0.2s ease;
+/* --- Responsive Adjustments (Keep existing or refine) --- */
+@media (max-width: 1200px) {
+  .map-panel {
+    width: 55%;
+  }
+  .property-panel {
+    width: 45%;
+  }
 }
-.demographic-card .card-header.clickable:hover {
-  background-color: #eef4fc; /* Slight hover effect */
+@media (max-width: 992px) {
+  .app-container {
+    flex-direction: column;
+  }
+  .map-panel,
+  .property-panel {
+    width: 100%;
+    height: 50vh;
+    border-right: none;
+    border-bottom: 1px solid #ccc;
+  }
+  .property-panel {
+    height: auto;
+    min-height: 50vh;
+    box-shadow: none;
+  }
+  .map-container {
+    height: calc(50vh - 70px);
+  } /* Adjust based on search bar */
+  .overview-tab .overview-layout {
+    flex-direction: column;
+  }
+  .overview-tab .overview-left {
+    flex-basis: auto;
+  }
 }
-
-
-.demographic-card .card-header .toggle-icon {
-  margin-left: auto; /* Push icon to the right */
-  font-size: 1rem;
-  color: #6c757d; /* Subdued color */
-  transition: transform 0.3s ease; /* Smooth rotation */
-}
-
-.demographic-card.collapsed .card-header .toggle-icon {
-  transform: rotate(-90deg); /* Point down when collapsed */
-}
-
-
-/* Style the card content area for transitions */
-.demographic-card .card-content {
-  padding: 0px 15px; /* Remove top/bottom padding initially */
-  max-height: 1000px; /* Set a large max-height for expanded state */
-  overflow: hidden;
-  transition: max-height 0.4s ease-in-out, padding 0.4s ease-in-out; /* Smooth transition */
-  /* display: flex;  Keep flex properties */
-  /* flex-direction: column; */
-  /* gap: 20px; */
-}
-
-.demographic-card.collapsed .card-content {
-  max-height: 0; /* Collapse the content */
-  padding-top: 0;
-  padding-bottom: 0;
-  /* Optionally add border/margin adjustments when collapsed */
-  /* border-top: none; */
-  /* margin-top: -1px; */ /* Overlap border */
-}
-
-/* Add padding back when expanded */
-.demographic-card:not(.collapsed) .card-content {
-  padding-top: 15px;
-  padding-bottom: 15px;
+@media (max-width: 768px) {
+  .property-detail .details-grid,
+  .investment-metrics,
+  .overview-tab .summary-grid {
+    grid-template-columns: 1fr;
+  }
+  .property-card .property-details.simple-details {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .property-detail .detail-tabs {
+    overflow-x: auto;
+    white-space: nowrap;
+  } /* Allow tabs to scroll horizontally */
+  .property-detail .tab-button {
+    padding: 10px 12px;
+    font-size: 0.9rem;
+  }
 }

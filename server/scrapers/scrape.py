@@ -1,5 +1,5 @@
 # /server/scrapers/scrape.py
-# MODIFIED FOR SSE STREAMING OUTPUT
+# REVERTED to user's core logic, adapted for SSE
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -12,18 +12,18 @@ from selenium.common.exceptions import (
     TimeoutException,
     NoSuchElementException,
     WebDriverException,
-    InvalidSelectorException,
     NoSuchWindowException,
-    ElementClickInterceptedException,
+    ElementClickInterceptedException,  # Keep relevant exceptions
+    ElementNotInteractableException,
 )
 from bs4 import BeautifulSoup
 import json
 import time
 import random
 import re
-import argparse
+import argparse  # Use argparse for command line input
 import sys
-import traceback
+import traceback  # Keep for detailed error logging
 
 # --- Constants ---
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
@@ -48,20 +48,20 @@ def print_sse_json(data):
 
 
 class RightmoveScraper:
-    # --- __init__, close_driver, robust_click, search_by_postcode ---
-    # --- remain EXACTLY the same as the previous version          ---
+    # --- __init__ based on user's standalone but with SSE requirements ---
     def __init__(self, postcode="TS178BT"):
-        # self.results = [] # No longer needed to store all results here
+        # No self.results needed for SSE
         self.postcode = postcode
-        self.search_postcode = postcode[:3]
-        self.processed_properties_count = 0  # Track if any properties were processed
+        self.search_postcode = postcode[:3]  # Use first 3 characters of postcode
+        self.processed_properties_count = 0  # Track count for final SSE message
+
         print(
             f"Initializing scraper for postcode: {postcode}, using search term: {self.search_postcode}",
             file=sys.stderr,
         )
-        # ... rest of __init__ is the same ...
+
         chrome_options = Options()
-        chrome_options.add_argument("--headless=new")
+        chrome_options.add_argument("--headless=new")  # Use new headless
         chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--window-size=1920,1080")
         chrome_options.add_argument("--no-sandbox")
@@ -74,46 +74,49 @@ class RightmoveScraper:
         try:
             service = Service(ChromeDriverManager().install())
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
-            self.driver.set_page_load_timeout(45)
+            self.driver.set_page_load_timeout(45)  # Slightly longer timeout
             print("WebDriver initialized successfully.", file=sys.stderr)
         except WebDriverException as e:
-            # Print fatal error to stdout for SSE handling
             print_sse_json({"error": f"Failed to initialize WebDriver: {str(e)}"})
             traceback.print_exc(file=sys.stderr)
-            sys.exit(1)
+            sys.exit(1)  # Exit if driver fails
         except Exception as e:
             print_sse_json(
                 {"error": f"An unexpected error occurred during driver setup: {str(e)}"}
             )
             traceback.print_exc(file=sys.stderr)
-            sys.exit(1)
+            sys.exit(1)  # Exit on other setup errors
 
+    # --- close_driver (Keep robust version for cleanup) ---
     def close_driver(self):
         if hasattr(self, "driver") and self.driver:
-            # ... same logic as before ...
             try:
                 print("Closing WebDriver.", file=sys.stderr)
+                # Close extra tabs first
                 handles = self.driver.window_handles
                 for handle in handles[1:]:
                     try:
                         self.driver.switch_to.window(handle)
                         self.driver.close()
                     except (NoSuchWindowException, WebDriverException):
-                        pass
+                        pass  # Ignore errors if tab already closed
+                # Switch back to main and quit
                 if handles:
                     try:
                         self.driver.switch_to.window(handles[0])
                     except (NoSuchWindowException, WebDriverException):
-                        pass
+                        pass  # Ignore if main window also gone
                 self.driver.quit()
             except WebDriverException as qe:
-                if "invalid session id" in str(qe) or "session deleted" in str(qe):
+                if (
+                    "invalid session id" in str(qe).lower()
+                    or "session deleted" in str(qe).lower()
+                ):
                     print(
                         "Warning: WebDriver session already invalid or closed during quit.",
                         file=sys.stderr,
                     )
                 else:
-                    # Log warning to stderr, don't send to stdout as it might interfere with SSE
                     print(
                         f"Warning: Error closing WebDriver: {str(qe)}", file=sys.stderr
                     )
@@ -123,28 +126,34 @@ class RightmoveScraper:
                     file=sys.stderr,
                 )
 
+    # --- robust_click (Keep for reliable clicks) ---
     def robust_click(self, element_locator, timeout=10):
-        # ... same logic as before ...
         try:
             element = WebDriverWait(self.driver, timeout).until(
                 EC.element_to_be_clickable(element_locator)
             )
+            # Try JS click first as it's often more reliable with overlays
             try:
                 self.driver.execute_script("arguments[0].click();", element)
                 return True
-            except Exception:
+            except Exception:  # Fallback to normal click
                 element.click()
                 return True
         except ElementClickInterceptedException:
+            # If intercepted, try scrolling and JS click again
             try:
                 element = WebDriverWait(self.driver, timeout).until(
-                    EC.presence_of_element_located(element_locator)
+                    EC.presence_of_element_located(
+                        element_locator
+                    )  # Find it even if not clickable yet
                 )
                 self.driver.execute_script(
                     "arguments[0].scrollIntoView({block: 'center'});", element
                 )
-                time.sleep(0.5)
-                element_clickable = WebDriverWait(self.driver, 5).until(
+                time.sleep(0.5)  # Brief pause after scroll
+                element_clickable = WebDriverWait(
+                    self.driver, 5
+                ).until(  # Wait again for clickability
                     EC.element_to_be_clickable(element_locator)
                 )
                 self.driver.execute_script("arguments[0].click();", element_clickable)
@@ -165,6 +174,7 @@ class RightmoveScraper:
             print(f"  Error clicking element {element_locator}: {e}", file=sys.stderr)
             return False
 
+    # --- search_by_postcode (Using user's core logic with robust click/SSE error) ---
     def search_by_postcode(self):
         print(
             f"Navigating to Rightmove homepage and searching for postcode: {self.search_postcode}",
@@ -173,7 +183,7 @@ class RightmoveScraper:
         try:
             self.driver.get("https://www.rightmove.co.uk/")
 
-            # Wait for a key element like the search box to confirm basic page load
+            # Wait for search box
             search_box_locator = (
                 By.CSS_SELECTOR,
                 "input.dsrm_inputText.ta_userInput#ta_searchInput",
@@ -182,179 +192,161 @@ class RightmoveScraper:
                 WebDriverWait(self.driver, 15).until(
                     EC.presence_of_element_located(search_box_locator)
                 )
-                print("Homepage basic structure loaded.", file=sys.stderr)
             except TimeoutException:
                 raise Exception(
                     "Homepage did not load correctly (search box not found)."
                 )
 
-            # --- Optimized Cookie Handling ---
+            # Cookie Handling (Optimized check, robust click)
             print("Checking for cookie banner...", file=sys.stderr)
-            accept_locator_xpath = '//button[contains(text(), "Accept") or contains(text(), "ACCEPT ALL")]'  # Flexible XPath
+            accept_locator_xpath = (
+                '//button[contains(text(), "Accept") or contains(text(), "ACCEPT ALL")]'
+            )
             try:
-                # Use find_elements for a non-blocking check. Returns empty list if not found.
                 accept_buttons = self.driver.find_elements(
                     By.XPATH, accept_locator_xpath
                 )
-
-                if accept_buttons:
-                    # Found potential button(s). Try to click the first one.
-                    button_to_click = accept_buttons[0]
-                    # Check if it's actually visible/interactable before clicking
-                    if button_to_click.is_displayed() and button_to_click.is_enabled():
-                        try:
-                            print(
-                                "Cookie banner found. Attempting to click...",
-                                file=sys.stderr,
-                            )
-                            button_to_click.click()
-                            print("Clicked cookie accept button.", file=sys.stderr)
-                            time.sleep(
-                                random.uniform(0.2, 0.4)
-                            )  # Minimal pause ONLY after successful click
-                        except ElementNotInteractableException:
-                            # Fallback if click is intercepted or element obscured
-                            try:
-                                print(
-                                    "Cookie button not directly interactable, trying JS click...",
-                                    file=sys.stderr,
-                                )
-                                self.driver.execute_script(
-                                    "arguments[0].click();", button_to_click
-                                )
-                                print(
-                                    "Clicked cookie accept button via JS.",
-                                    file=sys.stderr,
-                                )
-                                time.sleep(
-                                    random.uniform(0.2, 0.4)
-                                )  # Minimal pause ONLY after successful click
-                            except Exception as js_e:
-                                print(
-                                    f"Warning: JS click on cookie button failed: {js_e}",
-                                    file=sys.stderr,
-                                )
-                        except Exception as click_e:
-                            print(
-                                f"Warning: Error clicking cookie button: {click_e}",
-                                file=sys.stderr,
-                            )
+                if (
+                    accept_buttons
+                    and accept_buttons[0].is_displayed()
+                    and accept_buttons[0].is_enabled()
+                ):
+                    print(
+                        "Cookie banner found. Attempting to click...", file=sys.stderr
+                    )
+                    # Use robust_click for the cookie button
+                    if self.robust_click((By.XPATH, accept_locator_xpath), timeout=5):
+                        print("Clicked cookie accept button.", file=sys.stderr)
+                        time.sleep(random.uniform(0.2, 0.4))
                     else:
-                        # Found in DOM but not visible/enabled. Ignore it.
                         print(
-                            "Cookie button found but not interactable, proceeding without click.",
-                            file=sys.stderr,
+                            "Warning: Failed to click cookie button.", file=sys.stderr
                         )
                 else:
-                    # Button not found by find_elements - common case if already accepted.
                     print(
-                        "Cookie banner button not found (or already handled), proceeding.",
+                        "Cookie banner button not found or not interactable.",
                         file=sys.stderr,
                     )
-
             except Exception as cookie_e:
-                # Catch unexpected errors during the check itself (e.g., invalid XPath temporarily)
                 print(
-                    f"Warning: Error during cookie banner check logic: {cookie_e}",
+                    f"Warning: Error during cookie banner check: {cookie_e}",
                     file=sys.stderr,
                 )
-            # --- End of Optimized Cookie Handling ---
 
-            # --- Search Box Interaction (Using previous optimized version) ---
+            # Find and interact with search box
             search_box = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable(search_box_locator)
             )
             search_box.clear()
             search_box.send_keys(self.search_postcode)
+            print(f"Entered postcode: {self.search_postcode}", file=sys.stderr)
 
-            # --- Autocomplete ---
-            autocomplete_list_locator = (By.CSS_SELECTOR, "ul.ta_searchResults")
+            # Autocomplete (Use robust click)
             autocomplete_first_item_locator = (
                 By.CSS_SELECTOR,
                 "ul.ta_searchResults li.ta_searchResultRow",
             )
             try:
                 WebDriverWait(self.driver, 7).until(
-                    EC.visibility_of_element_located(autocomplete_list_locator)
+                    EC.visibility_of_element_located(
+                        (By.CSS_SELECTOR, "ul.ta_searchResults")
+                    )
                 )
+                if not self.robust_click(autocomplete_first_item_locator, timeout=7):
+                    raise Exception("Failed to click autocomplete result.")
+                print("Clicked autocomplete result.", file=sys.stderr)
             except TimeoutException:
-                raise Exception(
-                    "Autocomplete suggestions did not appear after typing postcode."
+                print(
+                    "Warning: Autocomplete suggestions did not appear or timed out. Proceeding...",
+                    file=sys.stderr,
                 )
+                # Don't raise exception, try clicking search directly later
 
-            if not self.robust_click(autocomplete_first_item_locator, timeout=7):
-                raise Exception("Failed to click autocomplete result.")
-
-            # --- 'For Sale' Button ---
+            # Click "For sale" button (Use robust click)
             for_sale_locator = (
                 By.CSS_SELECTOR,
                 "button.dsrm_button[data-testid='forSaleCta']",
             )
-            WebDriverWait(self.driver, 7).until(
-                EC.element_to_be_clickable(for_sale_locator)
-            )
-            if not self.robust_click(for_sale_locator, timeout=7):
+            if not self.robust_click(for_sale_locator, timeout=10):
                 raise Exception("Failed to click 'For Sale' button.")
+            print("Clicked 'For Sale' button.", file=sys.stderr)
 
-            # --- Search Button ---
+            # Click "Search properties" button (Use robust click)
             search_button_locator = (By.CSS_SELECTOR, "button.dsrm_button#submit")
-            WebDriverWait(self.driver, 7).until(
-                EC.element_to_be_clickable(search_button_locator)
-            )
-            if not self.robust_click(search_button_locator, timeout=7):
+            if not self.robust_click(search_button_locator, timeout=10):
                 raise Exception("Failed to click 'Search Properties' button.")
+            print("Clicked 'Search Properties' button.", file=sys.stderr)
 
-            # --- Wait for Results Page ---
-            results_price_locator = (By.CSS_SELECTOR, ".PropertyPrice_price__VL65t")
+            # Wait for search results page load indicator (User's selector)
+            results_price_locator = (
+                By.CSS_SELECTOR,
+                ".PropertyPrice_price__VL65t",
+            )  # USER'S SELECTOR
             WebDriverWait(self.driver, 15).until(
                 EC.presence_of_element_located(results_price_locator)
             )
+
             print("Successfully navigated to search results page", file=sys.stderr)
             return True
 
         except Exception as e:
-            # Make sure to handle the error reporting (e.g., print_sse_json if needed)
-            print(
-                f"Error during search navigation: {type(e).__name__} - {e}",
-                file=sys.stderr,
-            )
+            error_msg = f"Error during search navigation: {type(e).__name__} - {e}"
+            print(error_msg, file=sys.stderr)
             traceback.print_exc(file=sys.stderr)
-            # Example SSE error reporting:
-            # print_sse_json({"error": f"Search navigation failed: {type(e).__name__} - {e}"})
+            print_sse_json({"error": error_msg})  # Send error via SSE
             return False
 
-    # --- Parse method MODIFIED to print each result ---
-    def parse(self, html):
-        if not html:
-            print("No HTML content to parse.", file=sys.stderr)
-            return
+    # --- fetch method removed (not needed for SSE approach) ---
 
-        print(
-            "Parsing list page HTML and preparing for sequential detail fetch...",
-            file=sys.stderr,
-        )
-        page_processed_count = 0
+    def parse(self, html):
+        print("Parsing HTML...", file=sys.stderr)
         soup = BeautifulSoup(html, "lxml")
 
+        # --- Use user's find_all logic ---
         prices = soup.find_all("div", class_="PropertyPrice_price__VL65t")
         addresses = soup.find_all("address", class_="PropertyAddress_address__LYRPq")
         descriptions = soup.find_all("p", class_="PropertyCardSummary_summary__oIv57")
         bedrooms = soup.find_all(
             "span", class_="PropertyInformation_bedroomsCount___2b5R"
         )
-        all_spans = soup.find_all("span", {"aria-label": True})
+        # *** Use user's potentially fragile way of finding bathrooms ***
+        # REMOVE the old bathrooms_elements finding based on aria-label
+        # bathroom_element = bathrooms_elements[i] # REMOVE THIS LINE
         links = soup.select("a.propertyCard-link")
+        # --- End user's find_all logic ---
 
-        num_properties_to_process = len(links)
+        # Determine the number of properties based on the shortest list (as zip would do)
+        num_properties = min(
+            len(prices),
+            len(addresses),
+            len(descriptions),
+            len(bedrooms),
+            len(links),
+        )
+        print(
+            f"Found elements suggesting {num_properties} properties (based on shortest list).",
+            file=sys.stderr,
+        )
 
-        for i in range(num_properties_to_process):
+        page_processed_count = 0
+        # Iterate up to the number determined above
+        for i in range(num_properties):
+            # --- Extract basic info (keep existing) ---
+            # Get elements for this iteration using index
+            price_element = prices[i]
+            address_element = addresses[i]
+            description_element = descriptions[i]
+            bedroom_element = bedrooms[i]
+            link_element = links[i]
+
+            # Prepare data dictionary for SSE output
             property_data = {
                 "id": f"rm_temp_{i}",
                 "price": "N/A",
                 "address": "N/A",
                 "description": "N/A",
                 "bedrooms": "N/A",
-                "bathrooms": "N/A",
+                "bathrooms": "N/A",  # Default
                 "square_footage": "N/A",
                 "property_type": "N/A",
                 "latitude": "N/A",
@@ -362,35 +354,26 @@ class RightmoveScraper:
                 "detail_url": "N/A",
                 "source": "Rightmove",
             }
-            is_fatal_error = False  # Flag to stop processing if session dies
+            is_fatal_error = False
+            detail_fetch_error = None
 
             try:
-                # --- Extract basic info (same as before) ---
-                if i < len(prices):
-                    property_data["price"] = prices[i].get_text(strip=True)
-                if i < len(addresses):
-                    property_data["address"] = addresses[i].get_text(strip=True)
-                if i < len(descriptions):
-                    property_data["description"] = descriptions[i].get_text(strip=True)
-                if i < len(bedrooms):
-                    bedroom_text = bedrooms[i].get_text(strip=True)
-                    match_bed = re.search(r"\d+", bedroom_text)
-                    if match_bed:
-                        property_data["bedrooms"] = match_bed.group(0)
-                if i < len(all_spans):  # Bathroom logic (same potential unreliability)
-                    aria_label = all_spans[i].get("aria-label", "").lower()
-                    if "bathroom" in aria_label or (
-                        "in property" in aria_label and aria_label.split()[0].isdigit()
-                    ):
-                        match_bath = re.search(
-                            r"(\d+)\s+bathroom", aria_label, re.IGNORECASE
-                        )
-                        if match_bath:
-                            property_data["bathrooms"] = match_bath.group(1)
-                        elif aria_label.split() and aria_label.split()[0].isdigit():
-                            property_data["bathrooms"] = aria_label.split()[0]
+                # --- Extract basic info (keep existing) ---
+                property_data["price"] = price_element.get_text(strip=True)
+                property_data["address"] = address_element.get_text(strip=True)
+                property_data["description"] = description_element.get_text(strip=True)
 
-                link_element = links[i]
+                # Extract bedrooms (keep existing)
+                bedroom_text = bedroom_element.get_text(strip=True)
+                match_bed = re.search(r"\d+", bedroom_text)
+                if match_bed:
+                    property_data["bedrooms"] = match_bed.group(0)
+
+                # --- REMOVE OLD Bathroom extraction ---
+                # aria_label = bathroom_element.get("aria-label", "")
+                # ... (remove the if/else block related to aria_label) ...
+
+                # --- Link and ID (Keep existing) ---
                 href = link_element.get("href")
                 if href and href.startswith("/properties/"):
                     property_data["detail_url"] = "https://www.rightmove.co.uk" + href
@@ -399,19 +382,22 @@ class RightmoveScraper:
                         property_data["id"] = f"rm_{match_id.group(1)}"
                 else:
                     print(
-                        f" Skipping detail fetch for card {i+1}: Invalid link {href}",
+                        f" Skipping detail fetch for card index {i}: Invalid link {href}",
                         file=sys.stderr,
                     )
-                    # Print basic info even if link bad? Maybe not, could be confusing. Let's skip.
-                    continue
+                    continue  # Skip this property if link is bad
 
-                # --- Fetch details sequentially (same core logic) ---
-                # print(f"  Fetching details for card {i+1}: {property_data['id']}", file=sys.stderr) # Reduce verbosity
+                # --- Fetch details sequentially ---
                 original_window = self.driver.current_window_handle
                 new_window = None
-                detail_fetch_error = None  # Track non-fatal errors for this property
 
                 try:
+                    if (
+                        not property_data["detail_url"]
+                        or property_data["detail_url"] == "N/A"
+                    ):
+                        raise ValueError("Detail URL is invalid or missing.")
+
                     self.driver.execute_script(
                         "window.open(arguments[0]);", property_data["detail_url"]
                     )
@@ -426,83 +412,162 @@ class RightmoveScraper:
                     new_window = new_window_handle[0]
                     self.driver.switch_to.window(new_window)
 
-                    detail_page_marker_selector = "._2uQQ3SV0eMHL1P6t5ZDo2q"
+                    # Wait for info reel section (more specific than body)
+                    info_reel_locator = (By.ID, "info-reel")
+                    WebDriverWait(self.driver, 15).until(
+                        EC.presence_of_element_located(info_reel_locator)
+                    )
+                    time.sleep(random.uniform(0.5, 1.0))
+
+                    # --- NEW: Extract Bathrooms & Property Type from Info Reel ---
                     try:
-                        WebDriverWait(self.driver, 15).until(
-                            EC.presence_of_element_located(
-                                (By.CSS_SELECTOR, detail_page_marker_selector)
-                            )
+                        info_reel = self.driver.find_element(*info_reel_locator)
+                        # Find all dt/dd pairs within the info reel dl
+                        items = info_reel.find_elements(
+                            By.XPATH,
+                            ".//div[contains(@class, '_3gIoc-NFXILAOZEaEjJi1n')]",
                         )
-                    except TimeoutException:
+                        for item in items:
+                            try:
+                                label_element = item.find_element(By.TAG_NAME, "dt")
+                                value_element = item.find_element(By.TAG_NAME, "dd")
+                                label_text = label_element.text.strip().upper()
+                                value_text = value_element.text.strip()
+
+                                if "BATHROOMS" in label_text:
+                                    match_bath = re.search(r"\d+", value_text)
+                                    if match_bath:
+                                        property_data["bathrooms"] = match_bath.group(0)
+                                elif "PROPERTY TYPE" in label_text:
+                                    property_data["property_type"] = value_text
+                                elif (
+                                    "SIZE" in label_text
+                                    and "ask agent" not in value_text.lower()
+                                ):
+                                    # Attempt to extract size if not 'Ask agent'
+                                    sqft_text_detail = value_text.replace(",", "")
+                                    match_sqft_detail = re.search(
+                                        r"([\d.,]+)\s*sq\s*ft",
+                                        sqft_text_detail,
+                                        re.IGNORECASE,
+                                    )
+                                    match_sqm_detail = re.search(
+                                        r"([\d.,]+)\s*(?:m²|sqm|sq\.?m)",
+                                        sqft_text_detail,
+                                        re.IGNORECASE,
+                                    )
+
+                                    if match_sqm_detail:
+                                        try:
+                                            sqm_val = float(match_sqm_detail.group(1))
+                                            sqft_val = round(sqm_val * 10.764)
+                                            property_data["square_footage"] = (
+                                                f"{sqft_val} sq ft"
+                                            )
+                                        except ValueError:
+                                            property_data["square_footage"] = (
+                                                value_text  # Fallback
+                                            )
+                                    elif match_sqft_detail:
+                                        property_data["square_footage"] = (
+                                            f"{match_sqft_detail.group(1)} sq ft"
+                                        )
+                                    else:
+                                        property_data["square_footage"] = (
+                                            value_text  # Fallback if pattern fails
+                                        )
+
+                            except NoSuchElementException:
+                                # print(f"    Could not find label/value pair in an info reel item.", file=sys.stderr) # Less verbose
+                                continue
+                            except Exception as e_item:
+                                print(
+                                    f"    Error processing info reel item: {e_item}",
+                                    file=sys.stderr,
+                                )
+
+                    except NoSuchElementException:
                         print(
-                            f"   Warning: Detail page marker '{detail_page_marker_selector}' not found for {property_data['id']}.",
+                            f"    Info reel (id='info-reel') not found for {property_data['id']}.",
                             file=sys.stderr,
                         )
-                    time.sleep(random.uniform(0.3, 0.7))
-
-                    # --- Coordinate Extraction (Primary Goal) ---
-                    try:
-                        page_source = self.driver.page_source
-                        match = re.search(
-                            r'"latitude"\s*:\s*([0-9.]+)\s*,\s*"longitude"\s*:\s*(-?[0-9.]+)',
-                            page_source,
-                        )
-                        if match:
-                            property_data["latitude"] = match.group(1)
-                            property_data["longitude"] = match.group(2)
-                        # else: print(f"    Coordinates regex pattern not found for {property_data['id']}.", file=sys.stderr) # Reduce verbosity
-                    except Exception as e_coords:
+                    except Exception as e_info_reel:
                         print(
-                            f"    Error extracting coordinates: {e_coords}",
+                            f"    Error extracting from info reel: {e_info_reel}",
                             file=sys.stderr,
                         )
-                        detail_fetch_error = (
-                            f"Coord error: {e_coords}"  # Log non-fatal error
-                        )
 
-                    # --- SqFt / Type Extraction (Secondary) ---
-                    if (
-                        not detail_fetch_error
-                    ):  # Only attempt if coordinate extraction didn't already fail critically
-                        try:  # SqFt
+                    # --- SqFt Extraction (Fallback if not found in info reel) ---
+                    if property_data["square_footage"] == "N/A":
+                        try:
+                            # Try the old XPATH as a fallback
                             sqft_element = self.driver.find_element(
-                                By.XPATH,
-                                "//*[contains(text(), 'sq ft') or contains(text(), 'sq. ft.') or contains(text(), 'sqm') or contains(text(), 'm²')]",
+                                By.XPATH, "//p[contains(text(), 'sq ft')]"
                             )
                             sqft_text = sqft_element.text.strip()
                             match_sqft = re.search(
                                 r"([\d,]+)\s*sq\s*ft", sqft_text, re.IGNORECASE
                             )
-                            match_sqm = re.search(
-                                r"([\d.,]+)\s*m²", sqft_text, re.IGNORECASE
-                            )
                             if match_sqft:
                                 property_data["square_footage"] = (
                                     match_sqft.group(1).replace(",", "") + " sq ft"
                                 )
-                            elif match_sqm:
-                                sqm_val = float(match_sqm.group(1).replace(",", ""))
-                                sqft_val = round(sqm_val * 10.764)
-                                property_data["square_footage"] = (
-                                    f"{sqft_val} sq ft (from {match_sqm.group(1)} m²)"
-                                )
                             else:
                                 property_data["square_footage"] = sqft_text
                         except NoSuchElementException:
-                            pass
-                        except Exception as e_sqft:
-                            print(
-                                f"    Error extracting sqft: {e_sqft}", file=sys.stderr
-                            )  # Log non-fatal
-
-                        try:  # Type
                             try:
-                                prop_elem = self.driver.find_element(
-                                    By.CSS_SELECTOR, "p._1hV1kqpVceE9m-QrX_hWDN"
+                                sqm_element = self.driver.find_element(
+                                    By.XPATH,
+                                    "//p[contains(text(), 'm²')] | //p[contains(text(), 'sqm')] | //p[contains(text(), 'sq.m')]",
                                 )
-                                property_data["property_type"] = prop_elem.text.strip()
+                                sqm_text = sqm_element.text.strip()
+                                match_sqm = re.search(
+                                    r"([\d.,]+)\s*(?:m²|sqm|sq\.?m)",
+                                    sqm_text,
+                                    re.IGNORECASE,
+                                )
+                                if match_sqm:
+                                    try:
+                                        sqm_val = float(
+                                            match_sqm.group(1).replace(",", "")
+                                        )
+                                        sqft_val = round(sqm_val * 10.764)
+                                        property_data["square_footage"] = (
+                                            f"{sqft_val} sq ft"
+                                        )
+                                    except ValueError:
+                                        property_data["square_footage"] = sqm_text
+                                else:
+                                    property_data["square_footage"] = sqm_text
                             except NoSuchElementException:
-                                found_type = False
+                                print(
+                                    f"    Fallback SqFt/SqM element also not found for {property_data['id']}.",
+                                    file=sys.stderr,
+                                )
+                        except Exception as e_sqft_fallback:
+                            print(
+                                f"    Error during fallback sqft extraction: {e_sqft_fallback}",
+                                file=sys.stderr,
+                            )
+
+                    # --- Property Type Extraction (Fallback if not found in info reel) ---
+                    if property_data["property_type"] == "N/A":
+                        try:
+                            # Try old CSS selector as fallback
+                            prop_elem = self.driver.find_element(
+                                By.CSS_SELECTOR, "p._1hV1kqpVceE9m-QrX_hWDN"
+                            )
+                            property_data["property_type"] = prop_elem.text.strip()
+                        except NoSuchElementException:
+                            # Try the p-tag search as final fallback (keep existing logic)
+                            try:
+                                print(
+                                    f"    Property type selector failed for {property_data['id']}, trying p-tag fallback...",
+                                    file=sys.stderr,
+                                )
+                                all_p_elements = self.driver.find_elements(
+                                    By.TAG_NAME, "p"
+                                )
                                 known_types = [
                                     "flat",
                                     "apartment",
@@ -529,69 +594,62 @@ class RightmoveScraper:
                                     "penthouse",
                                     "link-detached",
                                 ]
-                                for tag_name in ["h1", "h2", "div", "p"]:
-                                    elements = self.driver.find_elements(
-                                        By.TAG_NAME, tag_name
-                                    )
-                                    for elem in elements:
-                                        try:
-                                            text = elem.text.strip().lower()
-                                            if 0 < len(text) < 100:
-                                                for ktype in known_types:
-                                                    if re.search(
-                                                        r"\b"
-                                                        + re.escape(ktype)
-                                                        + r"\b",
-                                                        text,
-                                                    ):
-                                                        property_data[
-                                                            "property_type"
-                                                        ] = ktype.capitalize()
-                                                        found_type = True
-                                                        break
-                                        except Exception:
-                                            continue
-                                        if found_type:
-                                            break
+                                found_type = False
+                                for p_elem in all_p_elements:
+                                    try:
+                                        text = p_elem.text.strip().lower()
+                                        if 0 < len(text) < 100:
+                                            for ktype in known_types:
+                                                if re.search(
+                                                    r"\b" + re.escape(ktype) + r"\b", text
+                                                ):
+                                                    property_data["property_type"] = (
+                                                        ktype.capitalize()
+                                                    )
+                                                    found_type = True
+                                                    break
+                                    except Exception:
+                                        continue
                                     if found_type:
                                         break
-                        except Exception as e_prop:
+                                if not found_type:
+                                    print(
+                                        f"    Property type p-tag fallback failed for {property_data['id']}.",
+                                        file=sys.stderr,
+                                    )
+                            except Exception as e_prop_fallback:
+                                print(
+                                    f"    Error during property type p-tag fallback: {e_prop_fallback}",
+                                    file=sys.stderr,
+                                )
+                        except Exception as e_prop_fallback:
                             print(
-                                f"    Error extracting property type: {e_prop}",
+                                f"    Error during property type CSS fallback: {e_prop_fallback}",
                                 file=sys.stderr,
-                            )  # Log non-fatal
+                            )
 
-                except (
-                    TimeoutException,
-                    NoSuchWindowException,
-                    WebDriverException,
-                    Exception,
-                ) as e_detail:
-                    # Handle potentially fatal errors during tab management/loading
-                    print(
-                        f"   Error during detail fetch for {property_data['id']}: {type(e_detail).__name__} - {e_detail}",
-                        file=sys.stderr,
-                    )
-                    detail_fetch_error = f"Fetch error: {type(e_detail).__name__}"  # Store generic error type
-                    # Check if it's a session-killing error
-                    if isinstance(e_detail, WebDriverException) and (
-                        "invalid session id" in str(e_detail).lower()
-                        or "session deleted" in str(e_detail).lower()
-                        or "unable to connect" in str(e_detail).lower()
-                    ):
+                    # --- Coordinate Extraction (Keep existing) ---
+                    try:
+                        page_source = self.driver.page_source
+                        match = re.search(
+                            r'"latitude":([0-9.]+),"longitude":(-?[0-9.]+)', page_source
+                        )
+                        if match:
+                            property_data["latitude"] = match.group(1)
+                            property_data["longitude"] = match.group(2)
+                        else:
+                            print(
+                                f"    Coordinates regex pattern not found for {property_data['id']}.",
+                                file=sys.stderr,
+                            )
+                    except Exception as e_coords:
                         print(
-                            "!!! FATAL WebDriverException detected. Aborting script.",
+                            f"    Error extracting coordinates: {e_coords}",
                             file=sys.stderr,
                         )
-                        print_sse_json(
-                            {"error": f"Fatal WebDriverException: {e_detail}"}
-                        )  # Send fatal error to SSE
-                        is_fatal_error = True  # Set flag
-                        raise  # Re-raise to stop the run method
-                    if isinstance(e_detail, NoSuchWindowException):
-                        new_window = None  # Window is gone
+
+                # ... (keep existing finally block for window handling) ...
                 finally:
-                    # --- Careful cleanup (same as before) ---
                     try:
                         current_handles_before_close = self.driver.window_handles
                         if new_window and new_window in current_handles_before_close:
@@ -601,80 +659,89 @@ class RightmoveScraper:
                             self.driver.switch_to.window(original_window)
                         elif current_handles_after_close:
                             self.driver.switch_to.window(current_handles_after_close[0])
-                        # Don't raise fatal error here if already handled or window gone
                     except (NoSuchWindowException, WebDriverException) as e_cleanup:
                         print(
                             f"   Non-critical error during window cleanup for {property_data['id']}: {e_cleanup}",
                             file=sys.stderr,
                         )
-                        # If session dies here, the outer loop will catch it next iteration
+                        if (
+                            "invalid session id" in str(e_cleanup).lower()
+                            or "session deleted" in str(e_cleanup).lower()
+                        ):
+                            print(
+                                "!!! FATAL WebDriverException during cleanup. Aborting script.",
+                                file=sys.stderr,
+                            )
+                            is_fatal_error = True
 
-                # --- Print the processed property data to stdout ---
-                # Include error if one occurred during detail fetch for this property
+                # --- Print the processed property data to stdout via SSE ---
                 if detail_fetch_error:
                     property_data["fetch_error"] = detail_fetch_error
-                    print(
-                        f"  Processed card {i+1} ({property_data['id']}) with fetch error.",
-                        file=sys.stderr,
-                    )
 
-                # Send the data (even if details failed but basic info is present)
                 print_sse_json(property_data)
                 page_processed_count += 1
-                self.processed_properties_count += 1  # Increment global counter
+                self.processed_properties_count += 1
+
+                if is_fatal_error:
+                    raise WebDriverException("Session lost during detail processing.")
 
             except WebDriverException as e_outer_wd:
-                # Catch fatal WebDriver errors in the outer loop immediately
                 print(
                     f"!! FATAL WebDriverException processing card index {i}: {e_outer_wd}",
                     file=sys.stderr,
                 )
                 traceback.print_exc(file=sys.stderr)
                 print_sse_json({"error": f"Fatal WebDriverException: {e_outer_wd}"})
-                raise  # Stop the run
+                raise
             except Exception as e_outer:
                 print(
                     f"!! Major error processing property card index {i}: {e_outer}",
                     file=sys.stderr,
                 )
                 traceback.print_exc(file=sys.stderr)
-                # Log error to stderr, but maybe don't send to SSE unless it's fatal
-                # Optionally send a specific error for this card:
-                # print_sse_json({"error": f"Failed processing card {i}: {e_outer}", "card_index": i})
-                # Decide whether to continue or break based on error type if needed
+                # print_sse_json({"error": f"Failed processing card {i}: {e_outer}", "card_index": i}) # Optional SSE error per card
 
         print(
-            f"Finished parsing page. Processed {page_processed_count}/{num_properties_to_process} properties.",
+            f"Finished parsing page. Processed {page_processed_count}/{num_properties} properties found.",
             file=sys.stderr,
         )
 
-    # --- Run method MODIFIED for SSE output ---
+    # --- run method using user's logic + SSE ---
     def run(self):
         print("Starting scraper run...", file=sys.stderr)
-        script_error = None  # For storing script-level errors (navigation, pagination)
+        script_error = None
         start_time = time.time()
         try:
+            # Navigate to Rightmove and search (will send SSE error if it fails)
             if self.search_by_postcode():
+                # Process the first page
                 print("\nProcessing page 1...", file=sys.stderr)
+                time.sleep(
+                    random.uniform(0.5, 1.0)
+                )  # Small pause after search results load
                 html = self.driver.page_source
-                self.parse(html)  # Prints results as they are found
+                self.parse(html)  # This now prints results via SSE
 
-                max_pages = 1
-                for page in range(1, max_pages):
+                # Process additional pages (user's logic: max 1 extra page)
+                max_pages = (
+                    1  # Limit to 1 extra page as per standalone logic (range(1, 2))
+                )
+                for page in range(1, max_pages + 1):  # Correct range to check page 2
                     print(f"\nChecking for page {page + 1}...", file=sys.stderr)
                     try:
+                        # Try to find and click the next page button (user's selector)
                         next_button_locator = (
                             By.CSS_SELECTOR,
                             "button.pagination-button.pagination-direction.pagination-direction--next",
                         )
                         try:
-                            next_button_present = WebDriverWait(self.driver, 5).until(
-                                EC.presence_of_element_located(next_button_locator)
+                            # Check if clickable and not disabled
+                            next_button = WebDriverWait(self.driver, 7).until(
+                                EC.element_to_be_clickable(next_button_locator)
                             )
-                            if next_button_present.get_attribute(
-                                "disabled"
-                            ) or "disabled" in next_button_present.get_attribute(
-                                "class", ""
+                            if (
+                                next_button.get_attribute("disabled")
+                                or not next_button.is_enabled()
                             ):
                                 print(
                                     "Next button is disabled. Reached end.",
@@ -683,18 +750,20 @@ class RightmoveScraper:
                                 break
                         except TimeoutException:
                             print(
-                                f"No 'next' button found on page {page + 1}. Assuming end.",
+                                f"No enabled 'next' button found on page {page}. Assuming end.",
                                 file=sys.stderr,
                             )
-                            break
+                            break  # Exit loop if no next button
 
+                        # Use robust click for pagination
                         if not self.robust_click(next_button_locator, timeout=10):
                             print(
-                                "Failed to click next button after retries. Assuming end.",
+                                "Failed to click next button. Assuming end.",
                                 file=sys.stderr,
                             )
                             break
 
+                        # Wait for the page to load (using user's price selector as indicator)
                         results_price_locator = (
                             By.CSS_SELECTOR,
                             ".PropertyPrice_price__VL65t",
@@ -702,33 +771,46 @@ class RightmoveScraper:
                         WebDriverWait(self.driver, 15).until(
                             EC.presence_of_element_located(results_price_locator)
                         )
-                        time.sleep(random.uniform(0.7, 1.5))
+                        time.sleep(random.uniform(1.0, 2.0))  # Wait after click
 
                         print(f"Processing page {page + 1}...", file=sys.stderr)
                         html = self.driver.page_source
-                        self.parse(html)  # Prints results as they are found
+                        self.parse(html)  # Parse and print results for the new page
 
+                    except (
+                        WebDriverException
+                    ) as e_wd_page:  # Catch fatal errors during pagination
+                        script_error = f"Fatal WebDriver Error on page {page + 1}: {str(e_wd_page)}"
+                        print(
+                            f"!! FATAL WebDriverException during pagination: {e_wd_page}",
+                            file=sys.stderr,
+                        )
+                        traceback.print_exc(file=sys.stderr)
+                        print_sse_json({"error": script_error})
+                        raise  # Stop the run
                     except Exception as e:
-                        # Store the error, log it, and break pagination
                         script_error = f"Error on page {page + 1}: {str(e)}"
                         print(
                             f"Error navigating to or parsing page {page + 1}: {e}",
                             file=sys.stderr,
                         )
                         traceback.print_exc(file=sys.stderr)
-                        break
-            else:
-                script_error = "Failed during initial search setup."
-                print(f"Script Error: {script_error}", file=sys.stderr)
-                # Error already printed by search_by_postcode if it sent SSE error
+                        # Send non-fatal pagination error? Optional.
+                        # print_sse_json({"error": script_error})
+                        break  # Stop pagination on non-fatal errors too
 
-        except WebDriverException as e_wd_main:
-            # Catch fatal errors raised from parse/search
+            else:
+                # search_by_postcode already printed error and sent SSE message
+                script_error = "Failed during initial search setup."
+
+        except (
+            WebDriverException
+        ) as e_wd_main:  # Catch fatal errors raised from parse/search
             script_error = f"Fatal WebDriver Error: {str(e_wd_main)}"
             print(
                 f"Caught Fatal WebDriverException in run: {e_wd_main}", file=sys.stderr
             )
-            # Error should have already been sent to SSE by the function that raised it
+            # Error should have already been sent to SSE
         except Exception as e_main:
             script_error = f"Unexpected runtime error: {str(e_main)}"
             print(
@@ -744,26 +826,35 @@ class RightmoveScraper:
             self.close_driver()
 
             # --- Final SSE Message ---
-            if script_error:
-                # Error message should have been sent when the error occurred
+            if script_error and "Fatal" not in script_error:
+                # If a non-fatal script error stopped pagination etc., ensure an error was sent
+                # It might have been sent already, but send again if unsure.
+                # print_sse_json({"error": script_error}) # Uncomment if needed
                 print(f"Scraping finished with error: {script_error}", file=sys.stderr)
-                # Optionally send a final 'error-complete' status? For now, rely on the error message itself.
-                # print_sse_json({"status": "error", "message": script_error}) # Example
-            elif self.processed_properties_count == 0:
+            elif self.processed_properties_count == 0 and not script_error:
                 # No errors, but also no properties found/processed
                 print(
                     "Scraping finished. No properties found or processed.",
                     file=sys.stderr,
                 )
-                print_sse_json({"status": "no_results"})  # Send specific status
+                print_sse_json({"status": "no_results"})
                 print_sse_json({"status": "complete"})  # Also send complete signal
-            else:
+            elif not script_error:
                 # No errors and properties were processed
                 print(
                     f"Scraping finished successfully. Processed {self.processed_properties_count} properties.",
                     file=sys.stderr,
                 )
                 print_sse_json({"status": "complete"})  # Send completion signal
+            # If script_error contained "Fatal", the error was already sent by the raising function.
+            elif not script_error:
+                # No errors and properties were processed
+                print(
+                    f"Scraping finished successfully. Processed {self.processed_properties_count} properties.",
+                    file=sys.stderr,
+                )
+                print_sse_json({"status": "complete"})  # Send completion signal
+            # If script_error contained "Fatal", the error was already sent by the raising function.
 
 
 if __name__ == "__main__":
