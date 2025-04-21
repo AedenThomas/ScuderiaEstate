@@ -128,7 +128,7 @@ Our service integrates AI powered price forecasting, crime and environmental ris
 TableX. Feature Comparison Across Platforms
 | Feature               | ScuderiaEstate | PropertyData | Nimbus Maps | LandInsight | Lendlord | Home.co.uk |
 |-----------------------|----------------|---------------|--------------|--------------|-----------|--------------|
-| Price (per month)     | £X (Affordable) | £14+         | £80–150      | £45–135      | Free / £12 | Free         |
+| Price (per month)     | Affordable for SMEs<br>(Free for individuals) | £14+         | £80–150      | £45–135      | Free / £12 | Free         |
 | Market Insights       | ✅             | ✅           | ✅           | ✅           | ❌        | ✅ (Basic) |
 | Crime Data            | ✅             | ❌           | ❌           | ❌           | ❌        | ❌           |
 | Beginner Friendly     | ✅             | ❌           | ❌           | ❌           | ✅        | ❌           |
