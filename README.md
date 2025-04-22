@@ -156,7 +156,7 @@ Figure 9. Business Plan Execution Timeline
 
 
 ### Achievements to Date
-Since announcing our business plan, we have made steady progress on multiple fronts. We have validated our concept through interviews with potential users and industry players and refined our direction accordingly. To ensure smooth collaboration, we clearly defined our team structure and roles, and development was achieved through a centralized GitHub repository. We also prepared the legal foundation for the formation of a limited company, including compliance with GDPR and AML regulations. We developed AI-powered functional prototypes and improved usability based on early feedback. Additionally, we began testing marketing strategies leveraging Instagram and TikTok to explore possibilities for user engagement and outreach.
+Since announcing our business plan, we have made steady progress on multiple fronts. We have validated our concept through interviews with potential users and industry players and refined our direction accordingly. To ensure smooth collaboration, we clearly defined our team structure and roles, and development was achieved through a centralized GitHub repository. We also prepared the legal foundation for the formation of a limited company, including compliance with GDPR and AML regulations. We developed AI-powered functional prototypes and improved usability based on early feedback. Additionally, we began testing marketing strategies leveraging Instagram to explore possibilities for user engagement and outreach.
 
 ### Next Steps
 **Minimum Investment** :
@@ -172,7 +172,7 @@ Table 2. Sales & Marketing Timeline
 
 | Timeline                 | Strategy Category            | Key Activities                                                                                   | Purpose / Expected Outcome                                             |
 |--------------------------|------------------------------|--------------------------------------------------------------------------------------------------|------------------------------------------------------------------------|
-| **From Mid-April 2025**  | Initial User Acquisition     | - Launch ads on Instagram and TikTok  <br> - Conduct user testing and interviews using prototype | Validate product-market fit (PMF)  <br> Build early brand awareness    |
+| **From Mid-April 2025**  | Initial User Acquisition     | - Launch ads on Instagram, TikTok and Kickstarter.com  <br> - Conduct user testing and interviews using prototype | Validate product-market fit (PMF)  <br> Build early brand awareness    |
 | **From Summer 2025**     | Monetization Begins          | - Offer 7-day free trial  <br> - Introduce tiered pricing: Basic, Pro, Enterprise                 | Convert users to paying customers  <br> Establish a revenue base       |
 | **From Autumn 2025**     | Expansion Phase              | - Launch video ads on YouTube and LinkedIn  <br> - Publish SEO blog content                      | Increase web traffic  <br> Build credibility with professionals        |
 | **From 2026 Onward**     | Retention & LTV Optimization | - Email marketing (newsletters, retargeting)  <br> - Enhance community forum and customer support | Improve retention  <br> Boost user satisfaction and loyalty            |
