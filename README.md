@@ -32,7 +32,7 @@ pie
 ```
 
 ### Properties Price Trends in London and Opportunities 
-Figure 1 demonstrates the annual changes in prime London property from 2013 to 2023. It showcased the market fluctuations, which demonstrated the volatile nature of the London housing market.  Understanding these trends is essential for making informed decisions for real estate agents, property developers, and home buyers or sellers. Real estate agents can time listings and set competitive prices, developers can assess growth areas and market timing, and buyers or sellers can evaluate the best moments to transact. Therefore, ScuderiaEstate addresses the key pain points across these sectors by delivering AI-powered insights and predictive analytics, empowering users to make faster, data-driven decisions based on real-time pricing trends and market dynamics.
+Figure 2 demonstrates the annual changes in prime London property from 2013 to 2023. It showcased the market fluctuations, which demonstrated the volatile nature of the London housing market.  Understanding these trends is essential for making informed decisions for real estate agents, property developers, and home buyers or sellers. Real estate agents can time listings and set competitive prices, developers can assess growth areas and market timing, and buyers or sellers can evaluate the best moments to transact. Therefore, ScuderiaEstate addresses the key pain points across these sectors by delivering AI-powered insights and predictive analytics, empowering users to make faster, data-driven decisions based on real-time pricing trends and market dynamics.
 
 
 Figure 2. Changes in property prices in Central London
