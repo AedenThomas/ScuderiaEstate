@@ -106,7 +106,7 @@ Figure 6. ScuderiaEstate Market Risk Visualisation
 
 
 ### 4. Built on Trust and Transparency
-Personal information is a top priority for private buyers and sellers. Scuderia Estate will only share sensitive personal information of private buyers and sellers with users who have undergone rigorous identity verification, as shown in Figure X. Our services ensure transparency and reliability through rigorous customer verification and robust data protection. We employ a three-stage KYC process, first verifying the identity of our customers, then conducting customer due diligence, and enhanced due diligence for high-risk users. This ensures that only trusted customers have access to our platform. In addition, personal data is protected by SSL/TLS during transmission and securely encrypted with AES once received. Regular audits ensure strict compliance with the GDPR, ensuring the privacy and security of all user information.
+Protecting personal information is a top priority for private buyers and sellers. Scuderia Estate will only share sensitive personal information of private buyers and sellers with users who have undergone rigorous identity verification, as shown in Figure X. Our services ensure transparency and reliability through rigorous customer verification and robust data protection. We employ a three-stage KYC process, first verifying the identity of our customers, then conducting customer due diligence, and enhanced due diligence for high-risk users. This ensures that only trusted customers have access to our platform. In addition, personal data is protected by SSL/TLS during transmission and securely encrypted with AES once received. Regular audits ensure strict compliance with the GDPR, ensuring the privacy and security of all user information.
 
 Figure 7. Customer Screening and Privacy Protection
 <img width="780" alt="security" src="https://github.com/user-attachments/assets/e2fce034-449f-4202-baa3-2aa2fa569c8e" />
@@ -125,13 +125,17 @@ These features aim to support even more strategic and personalized decision-maki
 
 
 ## What is our unique selling proposition (USP)? 
-While many platforms provide property-related data, they tend to serve only specific user groups—such as investors, developers, or landlords—and often come with complex interfaces, high subscription costs, or outdated designs. This creates barriers for first-time buyers and individual investors who need clarity and confidence when making property decisions. Scuderia Estate sets itself apart by offering a unified, user-friendly platform that brings together the most critical insights in one place. Figure X illustrates how existing platforms are positioned in relation to their target users and common limitations.
+Many platforms offer real estate-related data, but they typically cater to specific user groups—such as investors, developers, or landlords—and often suffer from complex interfaces, high subscription fees, or outdated designs.
+These factors create barriers for users seeking both usability and meaningful insights to support better property decisions.
+Figure 8 shows how existing platforms and our service are positioned in relation to their target users and typical limitations.
 
 Figure 8. Competitor Positioning Overview
 <img width="780" alt="Competitor Analysis1" src="https://github.com/user-attachments/assets/97a5526e-2622-4009-b10c-b715c79d23e5" />
 
+Our service integrates AI-powered price predictions, crime and environmental risk data, and demographic insights—key elements often overlooked by competitors.
+Unlike platforms that demand specialized knowledge or expensive subscriptions, ScuderiaEstate is built for accessibility, with an intuitive interface and affordable pricing that works seamlessly across both desktop and mobile.
+In a market often seen as either fragmented or overly complex, ScuderiaEstate offers a new-generation real estate information platform that combines clarity, reliability, and intelligent technology. This is clearly demonstrated in Table 1.
 
-Our service integrates AI powered price forecasting, crime and environmental risk data, and demographic insights, which are often overlooked by competitors. Unlike platforms that require technical expertise or large budgets, Scuderia Estate is designed for accessibility, with an intuitive interface and affordable pricing that make it easy for anyone to use, whether on desktop or mobile. In a market where other services feel fragmented or overwhelming, Scuderia Estate delivers clarity, reliability, and smart technology in one seamless experience. This is clearly shown in Table 2.
 
 Table 1. Feature Comparison Across Platforms
 | Feature               | ScuderiaEstate | PropertyData | Nimbus Maps | LandInsight | Lendlord | Home.co.uk |
