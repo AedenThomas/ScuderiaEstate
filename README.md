@@ -106,8 +106,7 @@ Figure 6. ScuderiaEstate Market Risk Visualisation
 
 
 ### 4. Built on Trust and Transparency
-Trust is a top concern for individual buyers and sellers. Scuderia Estate ensures that sensitive information is shared only after strict identity checks, as shown in Figure X.
-Our service ensures transparency and trust through strict customer verification and robust data protection. We use a three step KYC process: starting with customer identification, followed by customer due diligence, and enhanced due diligence for high risk users. This allows only trusted customers to access our platform. In addition, personal data is protected with SSL/TLS during transmission and securely encrypted with AES after receipt. Regular audits guarantee strict GDPR compliance, ensuring that all user information remains private and secure.
+Personal information is a top priority for private buyers and sellers. Scuderia Estate will only share sensitive personal information of private buyers and sellers with users who have undergone rigorous identity verification, as shown in Figure X. Our services ensure transparency and reliability through rigorous customer verification and robust data protection. We employ a three-stage KYC process, first verifying the identity of our customers, then conducting customer due diligence, and enhanced due diligence for high-risk users. This ensures that only trusted customers have access to our platform. In addition, personal data is protected by SSL/TLS during transmission and securely encrypted with AES once received. Regular audits ensure strict compliance with the GDPR, ensuring the privacy and security of all user information.
 
 Figure 7. Customer Screening and Privacy Protection
 <img width="780" alt="security" src="https://github.com/user-attachments/assets/e2fce034-449f-4202-baa3-2aa2fa569c8e" />
