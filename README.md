@@ -64,11 +64,11 @@ flowchart TB
 
 
 ## How will our product meet the needs?
-ScuderiaEstate is an intelligent, data-integrated platform designed to maximize accuracy and speed in real estate decision-making.
+ScuderiaEstate is an intelligent data integration platform designed to maximize accuracy, speed and convenience of real estate decision-making.
 
 ### 1. Smarter Search (Real-Time Data Updates + Centralized Platform)
-With just one postcode input, ScuderiaEstate automatically collects and integrates current listings from multiple real estate platforms, displaying them intuitively on a map.
-In a single view, users can compare prices, property types, bedroom counts, and floor areas—all in real time. This eliminates the effort and time normally spent navigating across different websites.
+With just one postcode input, ScuderiaEstate automatically collects and integrates current listings from multiple real estate platforms, displaying them intuitively on a map. Users can compare prices, property types, bedroom counts, and floor areas In a single view, all in real time. This integration eliminates the effort and time spent on navigating across different websites.
+
 
 Figure 4. ScuderiaEstate Realtime Data Updates
 <img width="700" alt="in one place" src="https://github.com/user-attachments/assets/de1f6e7b-a54c-4299-9b4f-cb4922f4201d" />
