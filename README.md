@@ -70,7 +70,7 @@ ScuderiaEstate is an intelligent, data-integrated platform designed to maximize 
 With just one postcode input, ScuderiaEstate automatically collects and integrates current listings from multiple real estate platforms, displaying them intuitively on a map.
 In a single view, users can compare prices, property types, bedroom counts, and floor areas—all in real time. This eliminates the effort and time normally spent navigating across different websites.
 
-Figure 4. ScuederuaEstate Realtime Data Updates
+Figure 4. ScuderiaEstate Realtime Data Updates
 <img width="700" alt="in one place" src="https://github.com/user-attachments/assets/de1f6e7b-a54c-4299-9b4f-cb4922f4201d" />
 
 
