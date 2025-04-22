@@ -96,8 +96,10 @@ ScuderiaEstate integrates data from multiple public APIs and sources to quantify
 - Crime data: Visualized on the map via UK Police API
 - Price history: Displayed using Land Registry API
 - Demographics: Insights into age groups, education, industry, religion, and language use, based on Nomis datasets
+- Location data: Fetched from Google Maps and OpenStreetMap APIs for accurate visual mapping
+- Property records: Sourced from Companies House and Ordnance Survey to enhance data context
 
-Whether you're an overseas investor or a first-time home buyer, ScuderiaEstate helps you understand an area like a local real estate expert.
+Whether an overseas investor or a first-time home buyer, ScuderiaEstate helps users understand an area as if a local real estate expert.
 
 Figure 6. ScuderiaEstate Market Risk Visualization 
 <img width="700" alt="see the invisible" src="https://github.com/user-attachments/assets/21d8ddab-5f78-438f-81a6-5af04a16bb8e" />
