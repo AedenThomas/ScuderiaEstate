@@ -152,7 +152,7 @@ Table 1. Feature Comparison Across Platforms
 ScuderiaEstate has gone beyond ideation and taken concrete steps toward execution, including customer engagement, team structure, legal preparation, and marketing strategy development. Below is a summary of our progress so far and the planned next steps.
 
 Figure 9. Business Plan Execution Timeline
-<img width="780" alt="timeline" src="https://github.com/user-attachments/assets/c3d3d0f9-649b-476a-860d-733a84c80d12" />
+<img width="780" alt="timeline" src="https://github.com/user-attachments/assets/3da05877-d582-485e-a3c3-5dc6eb33cf4c" />
 
 
 ### Achievements to Date
