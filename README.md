@@ -76,15 +76,15 @@ Figure 4. ScuderiaEstate Realtime Data Updates
 
 
 ### 2. AI-Powered Price Forecasting (Predictive Insights + ROI Forecasting)
-ScuderiaEstate features a machine learning–based price prediction engine powered by XGBoost.
-It analyzes public datasets from 1995 to 2024, incorporating factors such as:
+ScuderiaEstate features a machine learning–based price prediction engine powered by XGBoost. It analyzes public datasets from 1995 to 2024, incorporating the following factors:
+
 
 - Most recent sale prices and local benchmarks
 - Long-term market trends in the surrounding area
 - Property size, age, and layout
 - Number of sales and property type distribution
 
-With this, the platform offers highly accurate future price projections, enabling smarter investment and timing decisions.
+With this, the platform offers highly accurate future price projections, and enables smarter investment and timing decisions.
 
 Figure 5. ScuderiaEstates Price Forecasting 
 <img width="700" alt="predict the future" src="https://github.com/user-attachments/assets/bd51b3f2-f9c3-4d75-8d71-806559ea426e" />
