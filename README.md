@@ -90,10 +90,10 @@ Figure 5. ScuderiaEstates Price Forecasting
 <img width="700" alt="predict the future" src="https://github.com/user-attachments/assets/bd51b3f2-f9c3-4d75-8d71-806559ea426e" />
 
 
-### 3. Making the Invisible Visible (Market Risk Visualization + Trend & ROI Forecasting)
+### 3. Making the Invisible Visible (Market Risk Visualisation + Trend & ROI Forecasting)
 ScuderiaEstate integrates data from multiple public APIs and sources to quantify the “feel” of a neighborhood.
 
-- Crime data: Visualized on the map via UK Police API
+- Crime data: Visualised on the map via UK Police API
 - Price history: Displayed using Land Registry API
 - Demographics: Insights into age groups, education, industry, religion, and language use, based on Nomis datasets
 - Location data: Fetched from Google Maps and OpenStreetMap APIs for accurate visual mapping
@@ -101,7 +101,7 @@ ScuderiaEstate integrates data from multiple public APIs and sources to quantify
 
 Whether an overseas investor or a first-time home buyer, ScuderiaEstate helps users understand an area as if a local real estate expert.
 
-Figure 6. ScuderiaEstate Market Risk Visualization 
+Figure 6. ScuderiaEstate Market Risk Visualisation 
 <img width="700" alt="see the invisible" src="https://github.com/user-attachments/assets/21d8ddab-5f78-438f-81a6-5af04a16bb8e" />
 
 
