@@ -21,7 +21,7 @@ ScuderiaEstate serves three core customer groups within the real estate sector:
 
 These groups share a need for accurate property valuation and data-driven decision-making. By providing smart analytics and predictive tools, ScuderiaEstate addresses the rising demand for market transparency among local and international buyers, while helping industry professionals overcome the tech adoption gap.
 
-
+Figure 1. ScuederiaEstate Target Customers
 ```mermaid
 pie
     title ScuderiaEstate Target Customers
@@ -35,14 +35,15 @@ pie
 Figure 1 demonstrates the annual changes in prime London property from 2013 to 2023. It showcased the market fluctuations, which demonstrated the volatile nature of the London housing market.  Understanding these trends is essential for making informed decisions for real estate agents, property developers, and home buyers or sellers. Real estate agents can time listings and set competitive prices, developers can assess growth areas and market timing, and buyers or sellers can evaluate the best moments to transact. Therefore, ScuderiaEstate addresses the key pain points across these sectors by delivering AI-powered insights and predictive analytics, empowering users to make faster, data-driven decisions based on real-time pricing trends and market dynamics.
 
 
-Figure 1. Changes in property prices in Central London
+Figure 2. Changes in property prices in Central London
 
 <img width="814" alt="price_trend" src="https://github.com/user-attachments/assets/e4375606-5d4f-4d11-8a55-7be6e2628fd6" />
 
 
 ## Customer Needs and Pain Points
-Real estate professionals and buyers often face challenges such as outdated data, unclear market trends, and time-consuming searches, which may impact their ability to evaluate property, resulting in missed investment opportunities. The flowchart below highlights the key pain points in the industry and how ScuderiaEstate’s AI-driven platform directly addresses them
+Real estate professionals and buyers often face challenges such as outdated data, unclear market trends, and time-consuming searches, which may impact their ability to evaluate property, resulting in missed investment opportunities. The flowchart below highlights the key pain points in the industry and how ScuderiaEstate’s AI-driven platform directly addresses them.
 
+Figure 3. Customer Needs and Pain Points
 ```mermaid
 flowchart TB
   A[Customer Pain Points]
@@ -69,7 +70,7 @@ ScuderiaEstate is an intelligent, data-integrated platform designed to maximize 
 With just one postcode input, ScuderiaEstate automatically collects and integrates current listings from multiple real estate platforms, displaying them intuitively on a map.
 In a single view, users can compare prices, property types, bedroom counts, and floor areas—all in real time. This eliminates the effort and time normally spent navigating across different websites.
 
-
+Figure 4. ScuederuaEstate Realtime Data Updates
 <img width="700" alt="in one place" src="https://github.com/user-attachments/assets/de1f6e7b-a54c-4299-9b4f-cb4922f4201d" />
 
 
@@ -85,6 +86,7 @@ It analyzes public datasets from 1995 to 2024, incorporating factors such as:
 
 With this, the platform offers highly accurate future price projections, enabling smarter investment and timing decisions.
 
+Figure 5. ScuderiaEstates Price Forecasting 
 <img width="700" alt="predict the future" src="https://github.com/user-attachments/assets/bd51b3f2-f9c3-4d75-8d71-806559ea426e" />
 
 
@@ -97,7 +99,7 @@ ScuderiaEstate integrates data from multiple public APIs and sources to quantify
 
 Whether you're an overseas investor or a first-time home buyer, ScuderiaEstate helps you understand an area like a local real estate expert.
 
-
+Figure 6. ScuderiaEstate Market Risk Visualization 
 <img width="700" alt="see the invisible" src="https://github.com/user-attachments/assets/21d8ddab-5f78-438f-81a6-5af04a16bb8e" />
 
 
@@ -105,7 +107,7 @@ Whether you're an overseas investor or a first-time home buyer, ScuderiaEstate h
 Trust is a top concern for individual buyers and sellers. Scuderia Estate ensures that sensitive information is shared only after strict identity checks, as shown in Figure X.
 Our service ensures transparency and trust through strict customer verification and robust data protection. We use a three step KYC process: starting with customer identification, followed by customer due diligence, and enhanced due diligence for high risk users. This allows only trusted customers to access our platform. In addition, personal data is protected with SSL/TLS during transmission and securely encrypted with AES after receipt. Regular audits guarantee strict GDPR compliance, ensuring that all user information remains private and secure.
 
-FigureX. Customer Screening and Privacy Protection
+Figure 7. Customer Screening and Privacy Protection
 <img width="780" alt="security" src="https://github.com/user-attachments/assets/e2fce034-449f-4202-baa3-2aa2fa569c8e" />
 
 
@@ -124,13 +126,13 @@ These features aim to support even more strategic and personalized decision-maki
 ## What is our unique selling proposition (USP)? 
 While many platforms provide property-related data, they tend to serve only specific user groups—such as investors, developers, or landlords—and often come with complex interfaces, high subscription costs, or outdated designs. This creates barriers for first-time buyers and individual investors who need clarity and confidence when making property decisions. Scuderia Estate sets itself apart by offering a unified, user-friendly platform that brings together the most critical insights in one place. Figure X illustrates how existing platforms are positioned in relation to their target users and common limitations.
 
-FigureX. Competitor Positioning Overview
+Figure 8. Competitor Positioning Overview
 <img width="780" alt="Competitor Analysis1" src="https://github.com/user-attachments/assets/97a5526e-2622-4009-b10c-b715c79d23e5" />
 
 
 Our service integrates AI powered price forecasting, crime and environmental risk data, and demographic insights, which are often overlooked by competitors. Unlike platforms that require technical expertise or large budgets, Scuderia Estate is designed for accessibility, with an intuitive interface and affordable pricing that make it easy for anyone to use, whether on desktop or mobile. In a market where other services feel fragmented or overwhelming, Scuderia Estate delivers clarity, reliability, and smart technology in one seamless experience. This is clearly shown in Table 2.
 
-TableX. Feature Comparison Across Platforms
+Table 1. Feature Comparison Across Platforms
 | Feature               | ScuderiaEstate | PropertyData | Nimbus Maps | LandInsight | Lendlord | Home.co.uk |
 |-----------------------|----------------|---------------|--------------|--------------|-----------|--------------|
 | Price (per month)     | Affordable for SMEs<br>(Free for individuals) | £14+         | £80–150      | £45–135      | Free / £12 | Free         |
@@ -144,7 +146,7 @@ TableX. Feature Comparison Across Platforms
 ## Business Execution Summary
 ScuderiaEstate has gone beyond ideation and taken concrete steps toward execution, including customer engagement, team structure, legal preparation, and marketing strategy development. Below is a summary of our progress so far and the planned next steps.
 
-FigureX. Business Plan Execution Timeline
+Figure 9. Business Plan Execution Timeline
 <img width="780" alt="timeline" src="https://github.com/user-attachments/assets/c3d3d0f9-649b-476a-860d-733a84c80d12" />
 
 
@@ -161,7 +163,7 @@ To ensure transparency and sustainability, we will formalise the roles and respo
 ### Sales & Marketing Execution Plan
 As we move forward, our go-to-market strategy will play a crucial role. The following plan highlights how we intend to acquire, convert, and retain users from 2025 onward.
 
-Tablex. Sales & Marketing Timeline
+Table 2. Sales & Marketing Timeline
 
 | Timeline                 | Strategy Category            | Key Activities                                                                                   | Purpose / Expected Outcome                                             |
 |--------------------------|------------------------------|--------------------------------------------------------------------------------------------------|------------------------------------------------------------------------|
@@ -183,7 +185,7 @@ The three most critical risks we have identified are labour shortages, regulator
 Each of these risks could have a serious impact on the continuity of our business if left unaddressed.
 As shown in Table 3, we have developed both mitigation and contingency plans to reduce potential damage and ensure service stability.
 
-Table3. Key Risks and Mitigation Strategies
+Table 3. Key Risks and Mitigation Strategies
 
 | Category         | Labour Shortages                                                                 | Regulatory Changes                                                                 | Cybersecurity Risks                                                                     |
 |------------------|----------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------|
