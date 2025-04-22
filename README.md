@@ -156,17 +156,17 @@ Figure 9. Business Plan Execution Timeline
 
 
 ### Achievements to Date
-Since the launch of our business plan, we have made steady progress across multiple areas. We validated our concept through interviews with potential users and industry professionals, and refined our direction accordingly. Our team structure and roles were clearly defined to ensure smooth collaboration, and development has been managed through a centralised GitHub repository. We also prepared the legal groundwork for registering as a Limited Company, including compliance with GDPR and AML regulations. A functional prototype was developed with AI-driven features, and early feedback helped us improve usability. In addition, we began testing marketing strategies using Instagram and TikTok to explore user engagement and outreach potential.
+Since announcing our business plan, we have made steady progress on multiple fronts. We have validated our concept through interviews with potential users and industry players and refined our direction accordingly. To ensure smooth collaboration, we clearly defined our team structure and roles, and development was achieved through a centralized GitHub repository. We also prepared the legal foundation for the formation of a limited company, including compliance with GDPR and AML regulations. We developed AI-powered functional prototypes and improved usability based on early feedback. Additionally, we began testing marketing strategies leveraging Instagram and TikTok to explore possibilities for user engagement and outreach.
 
 ### Next Steps
-**Raise Minimal Viable Investment** :
-We plan to secure the minimum necessary funding required for company registration and continued MVP development. Potential sources include university-affiliated incubators and pitch events.
+**Minimum Investment** :
+We plan to secure the minimum amount of funding required to establish the company and continue MVP development. We will also consider participating in university-related incubators and pitch events.
 
 **Agree on Board Structure and Shareholding** : 
-To ensure transparency and sustainability, we will formalise the roles and responsibilities of board members and clarify the shareholding structure in preparation for incorporation.
+To ensure transparency and sustainability, we will formalize the roles and responsibilities of board members and clarify the shareholding structure in preparation for launch.
 
 ### Sales & Marketing Execution Plan
-As we move forward, our go-to-market strategy will play a crucial role. The following plan highlights how we intend to acquire, convert, and retain users from 2025 onward.
+Go-to-market strategies will play a crucial role going forward. The following plan outlines how we will work towards user acquisition, conversion, and retention in 2025 April and beyond.
 
 Table 2. Sales & Marketing Timeline
 
@@ -182,13 +182,11 @@ Table 2. Sales & Marketing Timeline
 
 
 ### Future Vision
-In addition to these next steps, we are preparing for long-term scalability. Our intellectual property is being secured through trademark registration in both the UK and the US to support brand protection and cross-border expansion. Once ScuderiaEstate reaches a valuation of £50 million, we aim to transition to a Public Limited Company (PLC) and pursue an IPO on the London Stock Exchange. Following this milestone, we plan to expand globally by establishing regional subsidiaries in Europe, the Middle East, and Asia to adapt to local markets while maintaining a unified global brand.
+In addition to these next steps, we are also preparing for long-term scalability. We have also secured our intellectual property by registering trademarks in both the UK and the US, supporting our brand protection and cross-border operations. We aim to transition to a limited company (PLC) and IPO on the London Stock Exchange when ScuderiaEstate is valued at £50 million. After this milestone is achieved, we will set up regional subsidiaries in Europe, the Middle East, and Asia to expand globally. We plan to maintain a unified global brand while adapting to local markets.
 
 
 ## Risks and Challenges
-The three most critical risks we have identified are labour shortages, regulatory changes, and cybersecurity threats.
-Each of these risks could have a serious impact on the continuity of our business if left unaddressed.
-As shown in Table 3, we have developed both mitigation and contingency plans to reduce potential damage and ensure service stability.
+The three most significant risks we have identified are labour shortages, cybersecurity risks, and regulatory changes. Any of these risks could have a serious impact on business continuity if not addressed. We have developed mitigation and contingency plans to mitigate potential damage and ensure the stability of our services, as shown in Table 3.
 
 Table 3. Key Risks and Mitigation Strategies
 
