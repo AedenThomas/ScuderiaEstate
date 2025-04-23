@@ -196,6 +196,10 @@ Table 3. Key Risks and Mitigation Strategies
 | Mitigation Plan  | We will offer remote work, stock options, and training to attract and develop talent. | We will hire legal advisors and ensure our AI is explainable and regularly audited. | We will implement strong KYC, monitor transactions with AI, and follow GDPR/AML rules.   |
 | Contingency Plan | We will reassign staff, hire freelancers, or narrow service focus if needed.     | We will adapt our AI or pivot to safer markets like the UK and EU.                 | We will freeze accounts, notify regulators, and use cyber insurance to limit the impact. |
 
+## Group Contribution 
+<img width="667" alt="group-contribution2" src="https://github.com/user-attachments/assets/3596eb36-af9b-4fd3-b159-8d51e5737743" />
+
+
 
 
 
